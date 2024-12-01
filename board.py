@@ -6,24 +6,15 @@ from typing import Optional
 
 class Board:
 
-    def __init__(self, height = 5, width = 5):
+    def __init__(self, height : int = 15, width : int = 15):
         self.height : int = height
         self.width : int = width
-        required_bits : int = height * width
-
-        self.min_exact : Optional[int] = None
-        self.max_exact : Optional[int] = None
-        self.min : Optional[int] = None
-        self.max : Optional[int] = None
-        self.position_min : Optional[int] = None
-        self.position_max : Optional[int] = None
 
         self.position : int = 0
         self.mask : int = 0
         self.bottom : int = 0
 
-        self.key = (self.mask << required_bits ) | self.position
-
+        self.key = (self.mask << self.height * self.width ) | self.position
 
     def __str__(self):
         number_to_object = {0: "\033[91mX\033[0m", 1: "\033[94mO\033[0m"}
@@ -57,16 +48,28 @@ class Board:
 
         return str_to_print
 
+    def __eq__(self, other):
+        if isinstance(other, Board):
+            return self.position == other.position and self.mask == other.mask
+        return False
 
     def __hash__(self):
         return self.key
 
-    def get_left(self, number, position):
+    def copy(self):
+        new_board = Board(self.height, self.width)
+        new_board.position = self.position
+        new_board.mask = self.mask
+        new_board.bottom = self.bottom
+        new_board.key = self.key
+        return new_board
+
+    def get_left(self, number : int, position : int):
         if position < 0 or position >= self.height * self.width:
             raise ValueError(f"Position must be between 0 and {self.height * self.width - 1}")
         return (number >> (self.height * self.width - position - 1)) & 1
 
-    def get_x_y(self,number, x, y ):
+    def get_x_y(self,number : int, x : int, y : int ):
         if x < 0 or x >= self.height or y < 0 or y >= self.width:
             raise ValueError(f"X must be between 0 and {self.height - 1} Y must be between 0 and {self.width - 1}")
         return self.get_left(number, x + y * self.height)
@@ -76,17 +79,17 @@ class Board:
         free_position = [chr(ord("A") + self.height - bit % self.width - 1) + str( self.width - bit // self.width - 1) for bit in range(self.height * self.width) if (self.mask >> bit) & 1 == 0]
         return free_position
 
-    def play_to(self, player, position : str): # A fixer indice pas bon
-        if len(position) != 2 or not position[1].isdigit() or not position[0].isalpha():
+    def play_to(self, player : int, position : str):
+        if len(position) < 2 or not position[1:].isdigit() or not position[0].isalpha():
             raise ValueError(f"Position must be a letter and a integer")
 
         if player not in [1, 2]:
             raise ValueError("Player is not 1 or 2")
 
-        position = position[0].upper() + position[1]
+        position = position[0].upper() + position[1:]
 
         line = ord(position[0]) - ord("A")
-        column = int(position[1])
+        column = int(position[1:])
 
         if line < 0 or line > self.height - 1 or column < 0 or column > self.width - 1:
             raise ValueError(f"Position must be a letter between A and {chr(ord('A') + self.height - 1)} and a integer between 0 and {self.width - 1}")
@@ -99,23 +102,59 @@ class Board:
         if player == 1:
             self.position |= (1 << bit_offset)
 
+        self.key = (self.mask << self.height * self.width ) | self.position
+
+    def check_winner(self, bitboard : int):
+        # Horizontal
+        bit_offset = bitboard & (bitboard >> 2 * self.height)
+        bit_offset &= (bit_offset >> self.height)
+        if bit_offset & (bit_offset >> self.height) & Board.bit_builder(self.height * (self.width - 4), 0) != 0:
+            return True
+
+        # Vertical
+        bit_offset = bitboard & (bitboard >> 2 )
+        bit_offset &= (bit_offset >> 1)
+        if bit_offset & (bit_offset >> 1) & Board.bit_builder(self.height - 4, 4, self.width) != 0:
+            return True
+
+        # Diagonale Asc
+        bit_offset = bitboard & (bitboard >> 2 * (self.height - 1))
+        bit_offset &= (bit_offset >> self.height - 1)
+        if bit_offset & (bit_offset >> self.height - 1) & Board.bit_builder(self.height - 4, 4, self.width, False) != 0:
+            return True
 
 
-board = Board()
-print(board)
+        # Diagonale Desc
+        bit_offset = bitboard & (bitboard >> 2 * (self.height + 1))
+        bit_offset &= (bit_offset >> self.height + 1)
+        if bit_offset & (bit_offset >> self.height + 1) & Board.bit_builder(self.height - 4, 4, self.width) != 0:
+            return True
 
-a = None
-player = random.randint(1, 2)
-while a != "stop":
+        return False
 
-    try:
-        print(f"Player {player} turn")
-        a = input()
-        board.play_to(player, a)
+    @property
+    def is_winning(self):
 
-    except ValueError as e:
-        print(f"Error : {e}")
+        if self.check_winner(self.position):
+            return 1
 
-    player = 1 if player == 2 else 2
-    print(board)
-    print(board.can_play)
+        if self.check_winner(self.position ^ self.mask):
+            return -1
+
+        if self.mask == (1 << self.width * self.height) - 1:
+            return 0
+
+        return None
+
+    @staticmethod
+    def bit_builder(one : int, zero : int, repeat : int = 1, start_one : bool = True):
+        value = 0
+        for i in range(repeat * (one + zero)):
+            if start_one:
+                if i % (one + zero) < one:
+                    value |= (1 << i)
+            else:
+                if i % (one + zero) > zero - 1:
+                    value |= (1<< i)
+
+        return value
