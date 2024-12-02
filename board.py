@@ -76,7 +76,7 @@ class Board:
 
     @property
     def can_play(self):
-        free_position = [chr(ord("A") + self.height - bit % self.width - 1) + str( self.width - bit // self.width - 1) for bit in range(self.height * self.width) if (self.mask >> bit) & 1 == 0]
+        free_position = [chr(ord("A") + self.height - bit % self.height - 1) + str(self.width - bit // self.width - 1) for bit in range(self.height * self.width) if (self.mask >> bit) & 1 == 0]
         return free_position
 
     def play_to(self, player : int, position : str):
@@ -103,6 +103,7 @@ class Board:
             self.position |= (1 << bit_offset)
 
         self.key = (self.mask << self.height * self.width ) | self.position
+        return self
 
     def check_winner(self, bitboard : int):
         # Horizontal
@@ -122,7 +123,6 @@ class Board:
         bit_offset &= (bit_offset >> self.height - 1)
         if bit_offset & (bit_offset >> self.height - 1) & Board.bit_builder(self.height - 4, 4, self.width, False) != 0:
             return True
-
 
         # Diagonale Desc
         bit_offset = bitboard & (bitboard >> 2 * (self.height + 1))

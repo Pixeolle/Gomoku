@@ -6,23 +6,24 @@ class Solver:
     def __init__(self):
         self.table = {}
 
-    def set(self, board : Board, value : int, depth : int, flag : str):
-        self.table[hash(board)] = (value, depth, flag)
+    def set(self, board : Board, value : int, position : str, depth : int, flag : str):
+        self.table[hash(board)] = (value, position, depth, flag)
 
     def get(self, board):
         return self.table.get(hash(board))
 
     def solve(self, board: Board, player: int):
-        time_end : datetime = datetime.now() + timedelta(seconds=5)
+        offset = 0.01
+        time_end : datetime = datetime.now() + timedelta(seconds= 5 - offset)
 
         depth = 0
         while datetime.now() < time_end:
-            best_move = self.alpha_beta(board, player, depth)
+            #best_move = self.alpha_beta(board, player, depth)
             depth += 1
 
-        return best_move
+        return 0
 
-    def alpha_beta(self, board : Board, player : int, depth : int, alpha : int = -int("inf"), beta : int = int("inf")):
+    def alpha_beta(self, board : Board, player : int, depth : int, alpha : int = -float("inf"), beta : int = float("inf")):
         alpha_origin = alpha
 
         board_saved = self.get(board)
@@ -47,7 +48,7 @@ class Solver:
         child_boards = [board.copy().play_to(player, position) for position in board.can_play]
         child_boards.sort(key=lambda x : self.heuristic(x), reverse = (player == 1))
 
-        value = -int("inf")
+        value = -float("inf")
         next_player = 1 if player == 2 else 2
 
         for child_board in child_boards:
@@ -69,3 +70,5 @@ class Solver:
 
     def heuristic(self, board):
         return 1
+
+
