@@ -13,7 +13,8 @@ board.mask = mask
 
 print(board)
 
-print(solver.heuristic(board))
+
+print(solver.heuristic(board, 1))
 
 """
 a = None

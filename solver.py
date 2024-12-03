@@ -70,8 +70,8 @@ class Solver:
 
         return value
 
-    def heuristic(self, board) -> int:
-        weights = {
+    def heuristic(self, board, player : int) -> int:
+        player_weights = {
             "4_open" : 10,
             "4_semi" : 6,
             "4_close" : 2,
@@ -83,11 +83,23 @@ class Solver:
             "2_close" : 1
         }
 
-        player_1 = self.get_k_row(board, 1)
-        player_2 = self.get_k_row(board, 2)
+        opponent_weights = {
+            "4_open" : 10,
+            "4_semi" : 6,
+            "4_close" : 2,
+            "3_open" : 5,
+            "3_semi" : 3,
+            "3_close" : 1,
+            "2_open" : 3,
+            "2_semi" : 2,
+            "2_close" : 1
+        }
 
-        print(f"{sum(weight * (player_1.get(key, 0) - player_2.get(key, 0)) for key, weight in weights.items())=}")
-        return math.trunc(61 * sum(weight * (player_1.get(key, 0) - player_2.get(key, 0)) for key, weight in weights.items()) / 100)
+        player_1 = self.get_k_row(board, player)
+        player_2 = self.get_k_row(board, 1 if player == 2 else 2)
+
+        #print(f"{sum(weight * player_1.get(key, 0) -  opponent_weights[key] * player_2.get(key, 0) for key, weight in player_weights.items())=}")
+        return math.trunc(61 * sum(weight * player_1.get(key, 0) -  opponent_weights[key] * player_2.get(key, 0) for key, weight in player_weights.items()) / 100)
 
     def get_k_row(self, board, player) -> Dict[str, int]:
         count_k_row = {}
@@ -95,10 +107,12 @@ class Solver:
 
         for k in range(4, 1, - 1):
             positions = self.k_rows(board, player, k)
-            valid_positions = {key : set(value for value in position if value not in ban_positions.get(Solver.get_key(key), set())) for key, position in positions.items()}
+            valid_positions = {key: {value for value in positions if value not in ban_positions.get(Solver.get_key(key, alone = True), set())} for key, positions in positions.items()}
+
             for key, value in valid_positions.items():
-                count_k_row.setdefault(Solver.get_key(key, False), 0) + len(value)
-                ban_positions.setdefault(Solver.get_key(key), set()).add(Solver.extend_ban_position(board, value, k, Solver.get_key(key, alone=True)))
+                count_k_row[Solver.get_key(key, False)] = count_k_row.setdefault(Solver.get_key(key, False), 0) + len(value)
+
+                ban_positions.setdefault(Solver.get_key(key, alone = True), set()).update(Solver.extend_ban_position(board, value, k, Solver.get_key(key, alone=True)))
 
         return count_k_row
 
@@ -160,7 +174,6 @@ class Solver:
     def extend_ban_position(board : Board, positions : set, k : int, direction : str) -> Set[str]:
         banned_position = set(positions)
         for position in positions:
-            print(f"{position=}")
             match direction:
                 case "vertical":
                     offset = 1
