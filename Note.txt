@@ -1,2 +1,4 @@
 Idée :
-Pour améliorer le recherche viser les points les plus proches de ceux jouées précédament
+Pour améliorer le recherche viser les points les plus proches de ceux jouées précédament Bof
+ Prendre en compte les rotations qui affecte key et position
+
