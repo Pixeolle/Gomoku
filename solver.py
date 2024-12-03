@@ -95,7 +95,7 @@ class Solver:
 
         for k in range(4, 1, - 1):
             positions = self.k_rows(board, player, k)
-            valid_positions = {key : set(value not in ban_positions[Solver.get_key(key)]) for key, value in positions.items()}
+            valid_positions = {key : set(value for value in position if value not in ban_positions.get(Solver.get_key(key), set())) for key, position in positions.items()}
             for key, value in valid_positions.items():
                 count_k_row.setdefault(Solver.get_key(key, False), 0) + len(value)
                 ban_positions.setdefault(Solver.get_key(key), set()).add(Solver.extend_ban_position(board, value, k, Solver.get_key(key, alone=True)))
@@ -107,11 +107,12 @@ class Solver:
 
         offset = k
         opponent_mask = board.invert_one_zero(board.position ^ board.mask) if player == 1 else board.invert_one_zero(board.position)
+        bit_value = board.position if player == 1 else board.position ^ board.mask
 
-        bit_vertical = board.position if player == 1 else board.position ^ board.mask
-        bit_horizontal = board.position if player == 1 else board.position ^ board.mask
-        bit_diagonalasc = board.position if player == 1 else board.position ^ board.mask
-        bit_diagonaldesc = board.position if player == 1 else board.position ^ board.mask
+        bit_vertical = bit_value
+        bit_horizontal = bit_value
+        bit_diagonalasc = bit_value
+        bit_diagonaldesc = bit_value
 
         while offset > 1:
             bit_vertical &= (bit_vertical >> offset // 2)
@@ -121,76 +122,39 @@ class Solver:
 
             offset -= offset //2
 
-        mask_open_vertical = ((opponent_mask & (opponent_mask >> k + 1)) << 1)
-        mask_semi_vertical = ((opponent_mask ^ (opponent_mask >> k + 1)) << 1)
-        mask_close_vertical = board.invert_one_zero(((opponent_mask | (opponent_mask >> k + 1)) << 1))
-
-        mask_open_horizontal = ((opponent_mask & (opponent_mask >> (k + 1) * board.height)) << board.height)
-        mask_semi_horizontal = ((opponent_mask ^ (opponent_mask >> (k + 1) * board.height)) << board.height)
-        mask_close_horizontal = board.invert_one_zero(((opponent_mask | (opponent_mask >> (k + 1) * board.height)) << board.height))
-
-        mask_open_diagonalasc = ((opponent_mask & (opponent_mask >> (k + 1) * (board.height - 1))) << board.height - 1)
-        mask_semi_diagonalasc = ((opponent_mask ^ (opponent_mask >> (k + 1) * (board.height - 1))) << board.height - 1)
-        mask_close_diagonalasc = board.invert_one_zero(((opponent_mask | (opponent_mask >> (k + 1) * (board.height - 1))) << board.height - 1))
-
-        mask_open_diagonaldesc = ((opponent_mask & (opponent_mask >> (k + 1) * (board.height + 1))) << board.height + 1)
-        mask_semi_diagonaldesc = ((opponent_mask ^ (opponent_mask >> (k + 1) * (board.height + 1))) << board.height + 1)
-        mask_close_diagonaldesc = board.invert_one_zero(((opponent_mask | (opponent_mask >> (k + 1) * (board.height + 1))) << board.height + 1))
-
         vertical_filter = Board.bit_builder(board.height - k + 1, k - 1, board.width)
         horizontal_filter = Board.bit_builder(board.height * (board.width - k + 1), k - 1)
         diagonalasc_filter = Board.bit_builder(board.height - k + 1, k - 1, board.width - k + 1, False)
         diagonaldesc_filter = Board.bit_builder(board.height - k + 1, k - 1, board.width - k + 1)
 
-        open_vertical = bit_vertical & mask_open_vertical & vertical_filter
-        semi_vertical = bit_vertical & mask_semi_vertical & vertical_filter
-        close_vertical = bit_vertical & mask_close_vertical & vertical_filter
+        vertical = Solver.get_position_k_rows(board, bit_vertical, opponent_mask, k, 1, vertical_filter)
+        horizontal = Solver.get_position_k_rows(board, bit_horizontal, opponent_mask, k, board.height, horizontal_filter)
+        diagonalasc = Solver.get_position_k_rows(board, bit_diagonalasc, opponent_mask, k, board.height - 1, diagonalasc_filter)
+        diagonaldesc = Solver.get_position_k_rows(board, bit_diagonaldesc, opponent_mask, k, board.height + 1, diagonaldesc_filter)
 
-        open_horizontal = bit_horizontal & mask_open_horizontal & horizontal_filter
-        semi_horizontal = bit_horizontal & mask_semi_horizontal & horizontal_filter
-        close_horizontal = bit_horizontal & mask_close_horizontal & horizontal_filter
-
-        open_diagonalasc = bit_diagonalasc & mask_open_diagonalasc & diagonalasc_filter
-        semi_diagonalasc = bit_diagonalasc & mask_semi_diagonalasc & diagonalasc_filter
-        close_diagonalasc = bit_diagonalasc & mask_close_diagonalasc & diagonalasc_filter
-
-        open_diagonaldesc = bit_diagonaldesc & mask_open_diagonaldesc & diagonaldesc_filter
-        semi_diagonaldesc = bit_diagonaldesc & mask_semi_diagonaldesc & diagonaldesc_filter
-        close_diagonaldesc = bit_diagonaldesc & mask_close_diagonaldesc & diagonaldesc_filter
-        
-
-        open_vertical_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (open_vertical >> bit) & 1 == 1}
-        semi_vertical_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (semi_vertical >> bit) & 1 == 1}
-        close_vertical_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (close_vertical >> bit) & 1 == 1}
-
-        open_horizontal_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (open_horizontal >> bit) & 1 == 1}
-        semi_horizontal_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (semi_horizontal >> bit) & 1 == 1}
-        close_horizontal_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (close_horizontal >> bit) & 1 == 1}
-
-        open_diagonalasc_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (open_diagonalasc >> bit) & 1 == 1}
-        semi_diagonalasc_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (semi_diagonalasc >> bit) & 1 == 1}
-        close_diagonalasc_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (close_diagonalasc >> bit) & 1 == 1}
-
-        open_diagonaldesc_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (open_diagonaldesc >> bit) & 1 == 1}
-        semi_diagonaldesc_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (semi_diagonaldesc >> bit) & 1 == 1}
-        close_diagonaldesc_positions = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (close_diagonaldesc >> bit) & 1 == 1}
-
-        k_rows = {
-            f"{k}_open_vertical" : open_vertical_positions,
-            f"{k}_semi_vertical" : semi_vertical_positions,
-            f"{k}_close_vertical" : close_vertical_positions,
-            f"{k}_open_horizontal" : open_horizontal_positions,
-            f"{k}_semi_horizontal" : semi_horizontal_positions,
-            f"{k}_close_horizontal" : close_horizontal_positions,
-            f"{k}_open_diagonalasc" : open_diagonalasc_positions,
-            f"{k}_semi_diagonalasc" : semi_diagonalasc_positions,
-            f"{k}_close_diagonalasc" : close_diagonalasc_positions,
-            f"{k}_open_diagonaldesc" : open_diagonaldesc_positions,
-            f"{k}_semi_diagonaldesc" : semi_diagonaldesc_positions,
-            f"{k}_close_diagonaldesc" : close_diagonaldesc_positions
-        }
+        k_rows = {f"{k}_{state}_{direction}": positions[i]
+          for direction, positions in
+                  zip(["vertical", "horizontal", "diagonalasc", "diagonaldesc"],
+                      [vertical, horizontal, diagonalasc, diagonaldesc])
+          for i, state in enumerate(["open", "semi", "close"])}
 
         return k_rows
+
+    @staticmethod
+    def get_position_k_rows(board, bit, opponent_mask, k, shift, bit_filter):
+        mask_open = ((opponent_mask & (opponent_mask >> (k + 1) * shift )) << shift)
+        mask_semi = ((opponent_mask ^ (opponent_mask >> (k + 1) * shift)) << shift)
+        mask_close = board.invert_one_zero(((opponent_mask | (opponent_mask >> (k + 1) * shift)) << shift))
+
+        open = bit & mask_open & bit_filter
+        semi = bit & mask_semi & bit_filter
+        close = bit & mask_close & bit_filter
+
+        open_position = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (open >> bit) & 1 == 1}
+        semi_position = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (semi >> bit) & 1 == 1}
+        close_position = {board.bit_to_coordinate(bit) for bit in range(board.height * board.width) if (close >> bit) & 1 == 1}
+
+        return open_position, semi_position, close_position
 
     @staticmethod
     def extend_ban_position(board : Board, positions : set, k : int, direction : str) -> Set[str]:
@@ -223,3 +187,9 @@ class Solver:
         if direction :
             return key[key.rfind("_") + 1:]
         return key[key.find("_") + 1: key.rfind("_")]
+
+    @staticmethod
+    def print_s(values : Set[str]) -> None:
+        for value in values:
+            print(f"{value} ", end="")
+        print()

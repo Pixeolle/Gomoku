@@ -1,4 +1,20 @@
 Idée :
 Pour améliorer le recherche viser les points les plus proches de ceux jouées précédament Bof
- Prendre en compte les rotations qui affecte key et position
+Prendre en compte les rotations qui affecte key et position
+
+Interface
+
+Choix du mode :
+     - normal
+     - long
+
+Choix du type de joueurs :
+     - 1 v 1
+     - 1 v bot
+     - bot vs bot
+
+Choix du start :
+     - Joueur 1
+     - Joueur 2
+     - Aléatoire
 
