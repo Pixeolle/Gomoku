@@ -1,6 +1,7 @@
 Idée :
 Pour améliorer le recherche viser les points les plus proches de ceux jouées précédament Bof
 Prendre en compte les rotations qui affecte key et position
+et prendre en compte la symetrie par inversement des pions
 
 Interface
 

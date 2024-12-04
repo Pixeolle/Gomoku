@@ -5,59 +5,78 @@ from datetime import datetime, timedelta
 
 class Solver:
 
-    def __init__(self):
+    def __init__(self, timeout = 5, offset = 0.01):
         self.table = {}
+        self.timeout = timeout
+        self.offset = offset
 
-    def set(self, board : Board, value : int, position : str, depth : int, flag : str) -> None:
-        self.table[hash(board)] = (value, position, depth, flag)
+    def set(self, board : Board, position : str,  value : int, depth : int, flag : str) -> None:
+        self.table[hash(board)] = (position, value, depth, flag)
 
-    def get(self, board) -> Tuple[int, str, int, str]:
+    def get(self, board) -> Tuple[str, int, int, str]:
         return self.table.get(hash(board))
 
     def solve(self, board: Board, player: int) -> str:
         offset = 0.01
-        time_end : datetime = datetime.now() + timedelta(seconds= 5 - offset)
+        time_end : datetime = datetime.now() + timedelta(seconds= self.timeout - self.offset)
 
-        depth = 0
-        while datetime.now() < time_end:
-            #best_move = self.alpha_beta(board, player, depth)
+        depth = 1
+        while datetime.now() < time_end and depth <= board.remaining_moves:
+            best_move, value = self.alpha_beta(board, player, depth, time_end)
+            print(f"Profondeur = {depth}, Mouvement = {best_move}, Valeur = {value}")
             depth += 1
 
-        return "0"
+        return best_move
 
-    def alpha_beta(self, board : Board, player : int, depth : int, alpha : int = -float("inf"), beta : int = float("inf")):
+    def alpha_beta(self, board : Board, player : int, depth : int, time_end : datetime, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[Optional[str], int]:
         alpha_origin = alpha
-
         board_saved = self.get(board)
 
-        if board_saved is not None and board_saved[1] >= depth:
+
+        #print("Board")
+        if board_saved is not None and board_saved[2] >= depth:
+            #print("Saved")
             if board_saved[2] == "exact":
-                return board_saved[0]
+                return board_saved[0], board_saved[1]
             elif board_saved[2] == "lowerbound":
-                alpha = max(alpha, board_saved[0])
+                alpha = max(alpha, board_saved[1])
             elif board_saved[2] == "upperbound":
-                beta = min(beta, board_saved[0])
+                beta = min(beta, board_saved[1])
 
             if alpha >= beta:
-                return board_saved[0]
+                return board_saved[0], board_saved[1]
 
         if board.is_winning:
-            return 61 * board.is_winning
+            #print("Terminal")
+            return None, 61 * board.is_winning
 
-        if depth == 0:
-            return self.heuristic(board)
+        if depth == 0 or datetime.now() >= time_end:
+            return None, self.heuristic(board, player)
 
-        child_boards = [board.copy().play_to(player, position) for position in board.can_play]
-        child_boards.sort(key=lambda x : self.heuristic(x), reverse = (player == 1))
+        child_boards = [(board.copy().play_to(player, position), position) for position in board.can_play]
+        child_boards.sort(key=lambda x : (self.heuristic(x[0], player), board.distance(x[1])), reverse = (player == 1))
+        if len(child_boards) > 60:
+            child_boards = child_boards[:60]
 
-        value = -float("inf")
+        value = -float("inf") if player == 1 else float("inf")
+        position = None
         next_player = 1 if player == 2 else 2
 
-        for child_board in child_boards:
-            value = max(value, -self.alpha_beta(child_board, next_player, depth - 1, -beta, -alpha))
-            alpha = max(alpha, value)
-            if alpha > beta:
+        for child_board, child_position in child_boards:
+            _, child_value = self.alpha_beta(child_board, next_player, depth - 1, time_end, -beta, -alpha)
+            child_value -= 1 if child_value > 0 else -1
+
+            if player == 1:
+                value, position = max( (value, position), (child_value, child_position) , key=lambda x : x[0])
+                alpha = max(alpha, value)
+
+            else:
+                value, position = min((value, position), (child_value, child_position) , key=lambda x : x[0])
+                beta = min(beta, value)
+
+            if alpha >= beta:
                 break
+
 
         if value <= alpha_origin:
             flag_to_save = "upperbound"
@@ -66,40 +85,40 @@ class Solver:
         else:
             flag_to_save = "exact"
 
-        self.set(board, value, depth, flag_to_save)
+        self.set(board, position, value, depth, flag_to_save)
 
-        return value
+        return position, value
 
     def heuristic(self, board, player : int) -> int:
         player_weights = {
-            "4_open" : 10,
-            "4_semi" : 6,
-            "4_close" : 2,
-            "3_open" : 5,
-            "3_semi" : 3,
-            "3_close" : 1,
-            "2_open" : 3,
-            "2_semi" : 2,
-            "2_close" : 1
+            "4_open" : 1000,
+            "4_semi" : 1000,
+            "4_close" : 10,
+            "3_open" : 1000,
+            "3_semi" : 600,
+            "3_close" : 150,
+            "2_open" : 400,
+            "2_semi" : 250,
+            "2_close" : 5
         }
 
         opponent_weights = {
-            "4_open" : 10,
-            "4_semi" : 6,
-            "4_close" : 2,
-            "3_open" : 5,
-            "3_semi" : 3,
-            "3_close" : 1,
-            "2_open" : 3,
-            "2_semi" : 2,
-            "2_close" : 1
+            "4_open" : 1000,
+            "4_semi" : 500,
+            "4_close" : 10,
+            "3_open" : 300,
+            "3_semi" : 150,
+            "3_close" : 10,
+            "2_open" : 80,
+            "2_semi" : 40,
+            "2_close" : 5
         }
 
         player_1 = self.get_k_row(board, player)
         player_2 = self.get_k_row(board, 1 if player == 2 else 2)
-
-        #print(f"{sum(weight * player_1.get(key, 0) -  opponent_weights[key] * player_2.get(key, 0) for key, weight in player_weights.items())=}")
-        return math.trunc(61 * sum(weight * player_1.get(key, 0) -  opponent_weights[key] * player_2.get(key, 0) for key, weight in player_weights.items()) / 100)
+        scale = 1000
+        count = sum(weight * player_1.get(key, 0) -  opponent_weights[key] * player_2.get(key, 0) for key, weight in player_weights.items())
+        return math.trunc(61 * (count if -scale <= count <= scale else -scale if count < 0 else scale  )  / scale)
 
     def get_k_row(self, board, player) -> Dict[str, int]:
         count_k_row = {}
@@ -114,6 +133,7 @@ class Solver:
 
                 ban_positions.setdefault(Solver.get_key(key, alone = True), set()).update(Solver.extend_ban_position(board, value, k, Solver.get_key(key, alone=True)))
 
+        #print(count_k_row)
         return count_k_row
 
     @staticmethod

@@ -1,3 +1,4 @@
+import math
 import random
 import numpy as np
 from typing import *
@@ -63,6 +64,16 @@ class Board:
         new_board.bottom = self.bottom
         new_board.key = self.key
         return new_board
+
+    @property
+    def remaining_moves(self) -> int:
+        return self.total_pawn - Board.count_ones(self.mask)
+
+    def distance(self, position) -> float:
+        middle_line = self.height // 2
+        middle_row = self.width // 2
+        distance = math.sqrt((middle_line + ord("A") - ord(position[0]))**2 + (middle_row - int(position[1:]))**2)
+        return distance
 
     def get_left(self, number : int, position : int) -> int:
         if position < 0 or position >= self.height * self.width:
