@@ -133,6 +133,24 @@ class Board:
         self.key = (self.mask << self.height * self.width ) | self.position
         return self
 
+    def undo_to(self, position : str) -> None:
+        if len(position) < 2 or not position[1:].isdigit() or not position[0].isalpha():
+            raise ValueError(f"Position must be a letter and a integer")
+
+        position = position[0].upper() + position[1:]
+        line = ord(position[0]) - ord("A")
+        column = int(position[1:])
+
+        if line < 0 or line > self.height - 1 or column < 0 or column > self.width - 1:
+            raise ValueError(f"Position must be a letter between A and {chr(ord('A') + self.height - 1)} and a integer between 0 and {self.width - 1}")
+
+        if position in self.can_play :
+            raise ValueError(f"Position is not already taken")
+
+        bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
+        self.mask ^= (1 << bit_offset)
+        self.position ^= (1 << bit_offset)
+
     def check_winner(self, bitboard : int) -> bool:
         # Horizontal
         bit_offset = bitboard & (bitboard >> 2 * self.height)
