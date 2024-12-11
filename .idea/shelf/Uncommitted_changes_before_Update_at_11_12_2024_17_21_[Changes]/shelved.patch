@@ -1,0 +1,58 @@
+Index: game.py
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>from board import Board\r\nfrom solver import Solver\r\nimport random\r\nfrom datetime import datetime, timedelta\r\n\r\nboard = Board()\r\nsolver = Solver()\r\n\r\nposition = 11972712782478197656684065389945465735878816944881664\r\nmask = 23197056791886802764037326099063525452542046566875136\r\nboard.position = position\r\nboard.mask = mask\r\n\r\nprint(board)\r\n\r\n\r\nprint(solver.heuristic(board, 1))\r\n\r\n\"\"\"\r\na = None\r\nplayer = random.randint(1, 2)\r\nplayer_moves = [[], []]\r\nwhile board.is_winning is None:\r\n\r\n    is_valid = False\r\n    while not is_valid:\r\n        try:\r\n            print(f\"Player {player}'s turn\")\r\n            a = input()\r\n            board.play_to(player, a)\r\n            is_valid = True\r\n            player_moves[player - 1].append(a)\r\n\r\n        except ValueError as e:\r\n            print(f\"Error : {e}\")\r\n\r\n    player = 1 if player == 2 else 2\r\n    print(board)\r\n    Solver.k_rows(board, 1 if player == 2 else 2, 3)\r\n\r\nwinner = board.is_winning\r\nif winner in [-1, 1]:\r\n    print(f\"Congratulation Player {winner} wins\")\r\nelse :\r\n    print(f\"It's a draw\")\r\n\"\"\"
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/game.py b/game.py
+--- a/game.py	(revision 9252b6eb6d02680f27b8a15133b12f1082bd493d)
++++ b/game.py	(date 1733258748666)
+@@ -6,17 +6,19 @@
+ board = Board()
+ solver = Solver()
+ 
++"""
+ position = 11972712782478197656684065389945465735878816944881664
+ mask = 23197056791886802764037326099063525452542046566875136
+ board.position = position
+ board.mask = mask
++"""
+ 
+ print(board)
+ 
+ 
+-print(solver.heuristic(board, 1))
++#print(solver.heuristic(board, 1))
+ 
+-"""
++
+ a = None
+ player = random.randint(1, 2)
+ player_moves = [[], []]
+@@ -43,4 +45,3 @@
+     print(f"Congratulation Player {winner} wins")
+ else :
+     print(f"It's a draw")
+-"""
+\ No newline at end of file
+Index: Gomoku.iml
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+><?xml version=\"1.0\" encoding=\"UTF-8\"?>\r\n<module type=\"PYTHON_MODULE\" version=\"4\">\r\n  <component name=\"NewModuleRootManager\" inherit-compiler-output=\"true\">\r\n    <exclude-output />\r\n    <content url=\"file://$MODULE_DIR$\" />\r\n    <orderEntry type=\"jdk\" jdkName=\"Python 3.11 (Perso)\" jdkType=\"Python SDK\" />\r\n    <orderEntry type=\"sourceFolder\" forTests=\"false\" />\r\n  </component>\r\n</module>
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/Gomoku.iml b/Gomoku.iml
+--- a/Gomoku.iml	(revision 9252b6eb6d02680f27b8a15133b12f1082bd493d)
++++ b/Gomoku.iml	(date 1733257552881)
+@@ -3,7 +3,7 @@
+   <component name="NewModuleRootManager" inherit-compiler-output="true">
+     <exclude-output />
+     <content url="file://$MODULE_DIR$" />
+-    <orderEntry type="jdk" jdkName="Python 3.11 (Perso)" jdkType="Python SDK" />
++    <orderEntry type="jdk" jdkName="Python 3.12 (2)" jdkType="Python SDK" />
+     <orderEntry type="sourceFolder" forTests="false" />
+   </component>
+ </module>
+\ No newline at end of file

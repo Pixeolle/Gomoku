@@ -1,5 +1,5 @@
 import sys
-from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QMessageBox, QSpacerItem, QSizePolicy
+from PyQt5.QtWidgets import QApplication, QMainWindow, QWidget, QVBoxLayout, QLabel, QMessageBox, QSpacerItem, QSizePolicy, QHBoxLayout, QPushButton
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QFontDatabase
 from PyQt5.QtCore import Qt, QPoint
 from board import Board
@@ -9,6 +9,7 @@ class GomokuGUI(QMainWindow):
     def __init__(self):
         super().__init__()
         self.initUI()
+        self.move_history = []
 
     def initUI(self):
         self.setWindowTitle('Gomoku Game')
@@ -16,22 +17,36 @@ class GomokuGUI(QMainWindow):
         self.board = Board(15, 15)
         QFontDatabase.addApplicationFont("BebasNeue-Regular.ttf")
         self.current_player = random.randint(1, 2)
+
         self.central_widget = QWidget()
         self.central_widget.setStyleSheet('background-color: #c8b496;')
         self.setCentralWidget(self.central_widget)
+
         self.layout = QVBoxLayout(self.central_widget)
+        status_layout = QHBoxLayout()
         self.label = QLabel(f'Player {self.current_player}\'s turn', self)
-        self.layout.addWidget(self.label, alignment=Qt.AlignCenter)
+        self.undo_button = QPushButton('Annuler')
+        self.undo_button.setEnabled(False)
+        self.undo_button.clicked.connect(self.undo_move)
+
+        status_layout.addWidget(self.label)
+        status_layout.addWidget(self.undo_button)
+
+        self.layout.addLayout(status_layout)
+
         self.canvas = GameBoard(self.board, self)
         self.layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.layout.addWidget(self.canvas, alignment=Qt.AlignCenter)
         self.layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.show()
 
-    def update_status(self):
+    def update_status(self, position):
+        self.move_history.append(position)
+        self.undo_button.setEnabled(True)
         winner = self.board.is_winning
         if winner is not None:
             self.show_winner(winner)
+            self.undo_button.setEnabled(False)
         else:
             self.current_player = 1 if self.current_player == 2 else 2
             self.label.setText(f'Player {self.current_player}\'s turn')
@@ -44,6 +59,20 @@ class GomokuGUI(QMainWindow):
         else:
             QMessageBox.information(self, 'Gomoku', 'It\'s a draw!')
         self.close()
+
+    def undo_move(self):
+        if not self.move_history:
+            return
+        try :
+            last_move = self.move_history.pop()
+            self.board.undo_to(last_move)
+            self.current_player = 1 if self.current_player == 2 else 2
+            self.label.setText(f'Player {self.current_player}\'s turn')
+            if not self.move_history:
+                self.undo_button.setEnabled(False)
+            self.canvas.update()
+        except ValueError as e:
+            print(f"Erreur : {e}")
 
 class GameBoard(QWidget):
     def __init__(self, board, parent):
@@ -132,7 +161,7 @@ class GameBoard(QWidget):
             position = chr(ord('A') + grid_y) + str(grid_x)
             try:
                 self.board.play_to(self.parent.current_player, position)
-                self.parent.update_status()
+                self.parent.update_status(position)
                 self.update()
             except ValueError as e:
                 print(f"Erreur : {e}")
