@@ -133,7 +133,7 @@ class Board:
         self.key = (self.mask << self.height * self.width ) | self.position
         return self
 
-    def undo_to(self, position : str) -> None:
+    def undo_to(self, position : str):
         if len(position) < 2 or not position[1:].isdigit() or not position[0].isalpha():
             raise ValueError(f"Position must be a letter and a integer")
 
@@ -151,6 +151,9 @@ class Board:
         self.mask ^= (1 << bit_offset)
         if (self.position >> bit_offset) & 1 == 1:
             self.position ^= (1 << bit_offset)
+
+        self.key = (self.mask << self.height * self.width ) | self.position
+        return self
 
     def check_winner(self, bitboard : int) -> bool:
         # Horizontal
