@@ -149,7 +149,8 @@ class Board:
 
         bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
         self.mask ^= (1 << bit_offset)
-        self.position ^= (1 << bit_offset)
+        if (self.position >> bit_offset) & 1 == 1:
+            self.position ^= (1 << bit_offset)
 
     def check_winner(self, bitboard : int) -> bool:
         # Horizontal
