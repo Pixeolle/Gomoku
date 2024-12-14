@@ -15,6 +15,20 @@ class Board:
         self.mask : int = 0
         self.bottom : int = 0
 
+        self.bit_filter_1 = {
+            1 : Board.bit_builder(height - 1, 1, width),
+            height : Board.bit_builder(height * (width - 1)),
+            height - 1 : Board.bit_builder(height - 1, 1, width - 1, False),
+            height + 1 : Board.bit_builder(height - 1, 1, width - 1)
+        }
+
+        self.bit_filter_4 = {
+            1 : Board.bit_builder(self.height * (self.width - 4)),
+            height : Board.bit_builder(self.height - 4, 4, self.width),
+            height - 1 : Board.bit_builder(self.height - 4, 4, self.width - 4, False),
+            height + 1 : Board.bit_builder(self.height - 4, 4, self.width - 4)
+        }
+
         self.key = (self.mask << self.height * self.width ) | self.position
 
     def __str__(self) -> str:
@@ -69,10 +83,24 @@ class Board:
     def remaining_moves(self) -> int:
         return self.total_pawn - Board.count_ones(self.mask)
 
-    def distance(self, position) -> float:
-        middle_line = self.height // 2
-        middle_row = self.width // 2
-        distance = math.sqrt((middle_line + ord("A") - ord(position[0]))**2 + (middle_row - int(position[1:]))**2)
+    def clean_move(self, move : str) -> Tuple[str, int, int]:
+        if len(move) < 2 or not move[1:].isdigit() or not move[0].isalpha():
+            raise ValueError(f"Position must be a letter and a integer")
+
+        move = move[0].upper() + move[1:]
+
+        line = ord(move[0]) - ord("A")
+        column = int(move[1:])
+
+        if line < 0 or line > self.height - 1 or column < 0 or column > self.width - 1:
+            raise ValueError(f"Position must be a letter between A and {chr(ord('A') + self.height - 1)} and a integer between 0 and {self.width - 1}")
+
+        return move, line, column
+
+    def distance(self, move_1, move_2) -> float:
+        _, move_1_line, move_1_column = self.clean_move(move_1)
+        _, move_2_line, move_2_column = self.clean_move(move_2)
+        distance = max(abs(move_1_line - move_2_line), abs(move_1_column - move_2_column))
         return distance
 
     def get_left(self, number : int, position : int) -> int:
@@ -91,38 +119,22 @@ class Board:
         return free_position
 
     def bit_to_coordinate(self, bit) -> str:
+        if bit >= self.height * self.width:
+            raise ValueError(f"Bit should be between 0 and {self.height * self.width - 1}")
         return chr(ord("A") + self.height - bit % self.height - 1) + str(self.width - bit // self.width - 1)
 
-    def coordinate_to_bit(self, position : str) -> int:
-        if len(position) < 2 or not position[1:].isdigit() or not position[0].isalpha():
-            raise ValueError(f"Position must be a letter and a integer")
-
-        position = position[0].upper() + position[1:]
-
-        line = ord(position[0]) - ord("A")
-        column = int(position[1:])
-
-        if line < 0 or line > self.height - 1 or column < 0 or column > self.width - 1:
-            raise ValueError(f"Position must be a letter between A and {chr(ord('A') + self.height - 1)} and a integer between 0 and {self.width - 1}")
-
+    def coordinate_to_bit(self, move : str) -> int:
+        _, line, column = self.clean_move(move)
         return self.height - line - 1 + (self.width - column - 1) * self.height
 
-    def play_to(self, player : int, position : str):
-        if len(position) < 2 or not position[1:].isdigit() or not position[0].isalpha():
-            raise ValueError(f"Position must be a letter and a integer")
+    def play_to(self, player : int, move : str) -> 'Board':
 
         if player not in [1, 2]:
             raise ValueError("Player is not 1 or 2")
 
-        position = position[0].upper() + position[1:]
+        move, line, column = self.clean_move(move)
 
-        line = ord(position[0]) - ord("A")
-        column = int(position[1:])
-
-        if line < 0 or line > self.height - 1 or column < 0 or column > self.width - 1:
-            raise ValueError(f"Position must be a letter between A and {chr(ord('A') + self.height - 1)} and a integer between 0 and {self.width - 1}")
-
-        if position not in self.can_play :
+        if move not in self.can_play :
             raise ValueError(f"Position must be free")
 
         bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
@@ -133,18 +145,10 @@ class Board:
         self.key = (self.mask << self.height * self.width ) | self.position
         return self
 
-    def undo_to(self, position : str):
-        if len(position) < 2 or not position[1:].isdigit() or not position[0].isalpha():
-            raise ValueError(f"Position must be a letter and a integer")
+    def undo_to(self, move : str):
+        move, line, column = self.clean_move(move)
 
-        position = position[0].upper() + position[1:]
-        line = ord(position[0]) - ord("A")
-        column = int(position[1:])
-
-        if line < 0 or line > self.height - 1 or column < 0 or column > self.width - 1:
-            raise ValueError(f"Position must be a letter between A and {chr(ord('A') + self.height - 1)} and a integer between 0 and {self.width - 1}")
-
-        if position in self.can_play :
+        if move in self.can_play :
             raise ValueError(f"Position is not already taken")
 
         bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
@@ -156,30 +160,21 @@ class Board:
         return self
 
     def check_winner(self, bitboard : int) -> bool:
-        # Horizontal
-        bit_offset = bitboard & (bitboard >> 2 * self.height)
-        bit_offset &= (bit_offset >> self.height)
-        if bit_offset & (bit_offset >> self.height) & Board.bit_builder(self.height * (self.width - 4), 0) != 0:
-            return True
 
-        # Vertical
-        bit_offset = bitboard & (bitboard >> 2 )
-        bit_offset &= (bit_offset >> 1)
-        if bit_offset & (bit_offset >> 1) & Board.bit_builder(self.height - 4, 4, self.width) != 0:
-            return True
+        def check_direction() -> bool:
+            bit_offset = bitboard & (bitboard >> 2 * offset)
+            bit_offset &= (bit_offset >> offset)
+            if bit_offset & (bit_offset >> offset) & self.bit_filter_4[offset] != 0:
+                return True
+            return False
 
-        # Diagonale Asc
-        bit_offset = bitboard & (bitboard >> 2 * (self.height - 1))
-        bit_offset &= (bit_offset >> self.height - 1)
-        if bit_offset & (bit_offset >> self.height - 1) & Board.bit_builder(self.height - 4, 4, self.width - 4, False) != 0:
-            return True
 
-        # Diagonale Desc
-        bit_offset = bitboard & (bitboard >> 2 * (self.height + 1))
-        bit_offset &= (bit_offset >> self.height + 1)
-        if bit_offset & (bit_offset >> self.height + 1) & Board.bit_builder(self.height - 4, 4, self.width - 4) != 0:
-            return True
+        offsets = [1, self.height, self.height - 1, self.height + 1]
 
+
+        for offset in offsets:
+            if check_direction():
+                return True
         return False
 
     @staticmethod
@@ -205,7 +200,7 @@ class Board:
         return None
 
     @staticmethod
-    def bit_builder(one : int, zero : int, repeat : int = 1, start_one : bool = True) -> int:
+    def bit_builder(one : int, zero : int = 0, repeat : int = 1, start_one : bool = True) -> int:
         value = 0
         for i in range(repeat * (one + zero)):
             if start_one:
@@ -219,3 +214,52 @@ class Board:
 
     def invert_one_zero(self, number : int) -> int:
         return ~number & ((1 << self.width * self.height) - 1)
+
+    def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
+        all_k_near = []
+        mask = self.mask
+
+
+        if k == - 1:
+            while True :
+                near = self.get_k_near(mask)
+                near = {x for x in near if not any(x in k_near for k_near in all_k_near)}
+                if len(near) == 0:
+                    return all_k_near
+                all_k_near.append(near)
+                for position in near:
+                    mask |= (1 << self.coordinate_to_bit(position))
+
+
+        for _ in range(1, k + 1):
+            near = self.get_k_near(mask)
+            near = {x for x in near if not any(x in k_near for k_near in all_k_near)}
+            all_k_near.append(near)
+            for position in near:
+                mask |= (1 << self.coordinate_to_bit(position))
+
+        return all_k_near
+
+    def get_k_near(self, mask : int) -> Set[str]:
+        k_near = set()
+
+        offsets = [1, self.height, self.height - 1, self.height + 1]
+
+        for offset in offsets:
+            k_near |= self.get_k_near_by_direction(mask, offset)
+
+        return k_near
+
+    def get_k_near_by_direction(self, mask : int, offset : int) -> Set[str]:
+        k_near = set()
+        position_next_to_taken = mask ^ (mask >> offset)
+        position_next_to_taken &= self.bit_filter_1[offset]
+
+        for bit in range(self.height * self.width):
+            if (position_next_to_taken >> bit) & 1 == 1:
+                if (mask >> bit) & 1 == 0:
+                    k_near.add(self.bit_to_coordinate(bit))
+                else :
+                    k_near.add(self.bit_to_coordinate(bit + offset))
+
+        return k_near

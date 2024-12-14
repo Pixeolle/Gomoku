@@ -1,4 +1,5 @@
 import math
+import random
 from typing import *
 from board import Board
 from datetime import datetime, timedelta
@@ -16,8 +17,7 @@ class Solver:
     def get(self, board) -> Tuple[str, int, int, str]:
         return self.table.get(hash(board))
 
-    def solve(self, board: Board, player: int) -> str:
-        offset = 0.01
+    def solve(self, board: Board, player: int, previous_move) -> str:
         time_end : datetime = datetime.now() + timedelta(seconds= self.timeout - self.offset)
 
         depth = 1
@@ -28,66 +28,102 @@ class Solver:
 
         return best_move
 
-    def alpha_beta(self, board : Board, player : int, depth : int, time_end : datetime, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[Optional[str], int]:
+    def alpha_beta(self, board : Board, previous_move : str, player : int, depth : int, time_end : datetime, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[str, int, int]:
         alpha_origin = alpha
         board_saved = self.get(board)
 
-
-        #print("Board")
-        if board_saved is not None and board_saved[2] >= depth:
-            #print("Saved")
-            if board_saved[2] == "exact":
-                return board_saved[0], board_saved[1]
-            elif board_saved[2] == "lowerbound":
-                alpha = max(alpha, board_saved[1])
-            elif board_saved[2] == "upperbound":
-                beta = min(beta, board_saved[1])
-
-            if alpha >= beta:
-                return board_saved[0], board_saved[1]
+        if Solver.is_saved_deeper_or_equal(board_saved, depth):
+            return Solver.handle_saved_board(board_saved, alpha, beta, depth)
 
         if board.is_winning:
-            #print("Terminal")
-            return None, 61 * board.is_winning
+            return previous_move, 61 * board.is_winning, depth
 
         if depth == 0 or datetime.now() >= time_end:
-            return None, self.heuristic(board, player)
+            return previous_move, 0, depth
 
-        child_boards = [(board.copy().play_to(player, position), position) for position in board.can_play]
-        child_boards.sort(key=lambda x : (self.heuristic(x[0], player), board.distance(x[1])), reverse = (player == 1))
-        if len(child_boards) > 60:
-            child_boards = child_boards[:60]
+        value, position, remaining_depth = self.evaluate_child_boards(board, player, depth, time_end, alpha, beta)
 
+        flag_to_save = self.determine_flag_to_save(value, alpha_origin, beta)
+
+        self.set(board, position, value, depth, flag_to_save)
+
+        return position, value, remaining_depth
+
+    @staticmethod
+    def is_saved_deeper_or_equal(board_saved : Tuple[str, int, int, str], depth : int):
+        return board_saved is not None and board_saved[2] >= depth
+
+    @staticmethod
+    def handle_saved_board(board_saved, alpha, beta, depth):
+        if board_saved[2] == "exact":
+            return board_saved[0], board_saved[1], depth
+        elif board_saved[2] == "lowerbound":
+            alpha = max(alpha, board_saved[1])
+        elif board_saved[2] == "upperbound":
+            beta = min(beta, board_saved[1])
+
+        if alpha >= beta:
+            return board_saved[0], board_saved[1], depth
+
+    def evaluate_child_boards(self, board, player, depth, time_end, alpha, beta):
+        child_boards, distributed_depth = Solver.get_child_boards(board, player)
         value = -float("inf") if player == 1 else float("inf")
-        position = None
         next_player = 1 if player == 2 else 2
+        position = None
+
+
+
+
 
         for child_board, child_position in child_boards:
-            _, child_value = self.alpha_beta(child_board, next_player, depth - 1, time_end, -beta, -alpha)
-            child_value -= 1 if child_value > 0 else -1
+            _, child_value = self.alpha_beta(child_board, child_position, next_player, depth - 1, time_end, -beta, -alpha)
+            child_value = self.adjust_child_value(player, child_value)
 
             if player == 1:
-                value, position = max( (value, position), (child_value, child_position) , key=lambda x : x[0])
-                alpha = max(alpha, value)
-
+                value, position, alpha = self.evaluate_max(value, position, alpha, child_value, child_position)
             else:
-                value, position = min((value, position), (child_value, child_position) , key=lambda x : x[0])
-                beta = min(beta, value)
+                value, position, beta = self.evaluate_min(value, position, beta, child_value, child_position)
 
             if alpha >= beta:
                 break
 
+        return value, position
 
+    @staticmethod
+    def get_child_boards(board, player, previous_move : str, depth : int) -> List[Tuple[Board, str]]:
+
+        range_point = board.find_1_to_k_near_position()
+        child_boards = [(board.copy().play_to(player, pos), pos) for pos in board.can_play]
+
+        child_boards.sort(
+            key=lambda x: (
+                next((index for index, points in enumerate(range_point) if x[1] in points), -1),
+                board.distance(previous_move, x[1])
+            )
+        )
+        return child_boards
+
+    def adjust_child_value(self, player, child_value):
+        return child_value - 1 if child_value > 0 else child_value + 1
+
+    def evaluate_max(self, value, position, alpha, child_value, child_position):
+        value, position = max((value, position), (child_value, child_position), key=lambda x: x[0])
+        alpha = max(alpha, value)
+        return value, position, alpha
+
+    def evaluate_min(self, value, position, beta, child_value, child_position):
+        value, position = min((value, position), (child_value, child_position), key=lambda x: x[0])
+        beta = min(beta, value)
+        return value, position, beta
+
+    def determine_flag_to_save(self, value, alpha_origin, beta):
         if value <= alpha_origin:
-            flag_to_save = "upperbound"
+            return "upperbound"
         elif value >= beta:
-            flag_to_save = "lowerbound"
+            return "lowerbound"
         else:
-            flag_to_save = "exact"
+            return "exact"
 
-        self.set(board, position, value, depth, flag_to_save)
-
-        return position, value
 
     def heuristic(self, board, player : int) -> int:
         player_weights = {
@@ -226,3 +262,66 @@ class Solver:
         for value in values:
             print(f"{value} ", end="")
         print()
+
+    def find_intuition(self, p1, o1, p2, o2):
+        self.winner((p1, o1), (p2, o2))
+        return
+
+    def winner(self, player_1 : Tuple[Dict[str, int], Dict[str, int]], player_2 : Tuple[Dict[str, int], Dict[str, int]], best_of : int = 1):
+        score = [0, 0]
+        while score[0] < best_of // 2 + 1 and score[1] < best_of // 2 + 1:
+            score[self.match_result(player_1, player_2)] += 1
+
+        return player_1 if score[0] > score[1] else player_2
+
+    def match_result(self, player_1, player_2):
+        board = Board()
+        player = random.randint(1, 2)
+        count = 1
+        while board.is_winning is None:
+
+            if player == 1:
+                move = self.find_move_heuristic(board, player_1, 1)
+                board.play_to(1, move)
+
+            else :
+                move = self.find_move_heuristic(board, player_2, 2)
+                board.play_to(2, move)
+
+            print(board)
+            player = 1 if player == 2 else 2
+            count += 1
+
+        winner = board.is_winning
+        print(f"Le joueur {winner} à gagné en {count} coups")
+        return 0 if winner == 1 else 1
+
+    def find_move_heuristic(self, board, weights, player) -> str:
+        childs_board = self.get_child_boards(board, player)
+
+
+        for child_board in childs_board:
+            if child_board[0].is_winning == 1 and player == 1 or child_board[0].is_winning == -1 and player == 2:
+                return child_board[1]
+
+        positions = [position for _, position in childs_board]
+        heuristics = [self.heuristic_train(child_board, player, weights[0], weights[1]) for child_board, _ in childs_board]
+        print(f"{heuristics=}")
+        print(f"{positions=}")
+
+        print(f"Joueur {player} coup {positions[heuristics.index(max(heuristics) if player == 1 else  min(heuristics))]} : valeur = {max(heuristics) if player == 1 else  min(heuristics)}")
+
+        return positions[heuristics.index(max(heuristics) if player == 1 else  min(heuristics))]
+
+        total = sum(heuristics)
+        probabilities = [h / total if total != 0 else 1 for h in heuristics]
+
+        return random.choices(positions, weights=probabilities, k=1)[0]
+
+    def heuristic_train(self, board, player : int, player_weights, opponent_weights) -> int:
+        player_1 = self.get_k_row(board, player)
+        player_2 = self.get_k_row(board, 1 if player == 2 else 2)
+        scale = 100
+        count = sum(weight * player_1.get(key, 0) -  opponent_weights[key] * player_2.get(key, 0) for key, weight in player_weights.items())
+        return math.trunc(61 * (count if -scale <= count <= scale else -scale if count < 0 else scale  )  / scale)
+
