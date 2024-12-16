@@ -1,6 +1,11 @@
 import math
 import random
+import numpy as np
 from typing import *
+
+from cupyx.fallback_mode.fallback import ndarray
+from numpy.f2py.crackfortran import groupbegins90
+
 from board import Board
 from datetime import datetime, timedelta
 
@@ -19,29 +24,51 @@ class Solver:
 
     def solve(self, board: Board, player: int, previous_move) -> str:
         time_end : datetime = datetime.now() + timedelta(seconds= self.timeout - self.offset)
+        best_move = board.can_play[0]
 
-        depth = 1
-        while datetime.now() < time_end and depth <= board.remaining_moves:
-            best_move, value = self.alpha_beta(board, player, depth, time_end)
-            print(f"Profondeur = {depth}, Mouvement = {best_move}, Valeur = {value}")
+        depth = 4
+        while datetime.now() < time_end and depth <= 4:
+            best_move_find, value,_ = self.alpha_beta(board, [previous_move], player, depth, time_end)
+            print(best_move_find)
+            if best_move_find is not None:
+                best_move = best_move_find
+            print(f"Profondeur = {depth}, Mouvement = {best_move_find}, Valeur = {value}")
             depth += 1
 
         return best_move
 
-    def alpha_beta(self, board : Board, previous_move : str, player : int, depth : int, time_end : datetime, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[str, int, int]:
+    def alpha_beta(self, board : Board, previous_move : List[str], player : int, depth : int, time_end : datetime, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[List[str], int, int]:
         alpha_origin = alpha
         board_saved = self.get(board)
 
-        if Solver.is_saved_deeper_or_equal(board_saved, depth):
-            return Solver.handle_saved_board(board_saved, alpha, beta, depth)
+        #print(f"Depth = {depth}")
+        #print(previous_move)
+        #print("Hello")
+        #print(f"{previous_move=}")
 
-        if board.is_winning:
-            return previous_move, 61 * board.is_winning, depth
+        if Solver.is_saved_deeper_or_equal(board_saved, depth):
+            if board_saved[2] == "exact":
+
+                #print(previous_move.append(board_saved[0]))
+                return previous_move, board_saved[1], depth
+            elif board_saved[2] == "lowerbound":
+                alpha = max(alpha, board_saved[1])
+            elif board_saved[2] == "upperbound":
+                beta = min(beta, board_saved[1])
+
+            if alpha >= beta:
+                return [board_saved[0]], board_saved[1], depth
+
+        winner = board.is_winning
+        if winner is not None:
+            #print("Final State find")
+            return previous_move, 61 * winner, depth
 
         if depth == 0 or datetime.now() >= time_end:
-            return previous_move, 0, depth
+            #print(previous_move)
+            return previous_move, 0, 0
 
-        value, position, remaining_depth = self.evaluate_child_boards(board, player, depth, time_end, alpha, beta)
+        value, position, remaining_depth = self.evaluate_child_boards(board, previous_move, player, depth, time_end, alpha, beta)
 
         flag_to_save = self.determine_flag_to_save(value, alpha_origin, beta)
 
@@ -53,65 +80,91 @@ class Solver:
     def is_saved_deeper_or_equal(board_saved : Tuple[str, int, int, str], depth : int):
         return board_saved is not None and board_saved[2] >= depth
 
-    @staticmethod
-    def handle_saved_board(board_saved, alpha, beta, depth):
-        if board_saved[2] == "exact":
-            return board_saved[0], board_saved[1], depth
-        elif board_saved[2] == "lowerbound":
-            alpha = max(alpha, board_saved[1])
-        elif board_saved[2] == "upperbound":
-            beta = min(beta, board_saved[1])
-
-        if alpha >= beta:
-            return board_saved[0], board_saved[1], depth
-
-    def evaluate_child_boards(self, board, player, depth, time_end, alpha, beta):
-        child_boards, distributed_depth = Solver.get_child_boards(board, player)
+    def evaluate_child_boards(self, board : Board, previous_move : List[str], player : int, depth : int, time_end : datetime, alpha : int, beta : int):
+        child_movs = Solver.get_child_boards(board, previous_move, depth - 1)
         value = -float("inf") if player == 1 else float("inf")
         next_player = 1 if player == 2 else 2
         position = None
+        remaining_depth = 0
+
+        print(f"{previous_move} {child_movs}")
+
+        child_index = 0
+        while child_index < len(child_movs) and datetime.now() <= time_end:
+
+            move_line = previous_move + [child_movs[child_index]]
+            child_board = board.copy().play_to(player, child_movs[child_index])
+            _, child_value, remaining_depth = self.alpha_beta(child_board, move_line, next_player, depth - 1, time_end, -beta, -alpha)
 
 
-
-
-
-        for child_board, child_position in child_boards:
-            _, child_value = self.alpha_beta(child_board, child_position, next_player, depth - 1, time_end, -beta, -alpha)
-            child_value = self.adjust_child_value(player, child_value)
+            child_value = Solver.adjust_child_value(child_value)
 
             if player == 1:
-                value, position, alpha = self.evaluate_max(value, position, alpha, child_value, child_position)
+                value, position, alpha = Solver.evaluate_max(value, position, alpha, child_value, child_movs[child_index])
             else:
-                value, position, beta = self.evaluate_min(value, position, beta, child_value, child_position)
+                value, position, beta = Solver.evaluate_min(value, position, beta, child_value, child_movs[child_index])
 
-            if alpha >= beta:
+            print(f"{position} {value} {alpha} {beta}")
+            if alpha >= beta or alpha > 60 or beta < -60:
+                print(f"Cut : {len(child_movs) - 1 - child_index}")
                 break
 
-        return value, position
+            child_index += 1
+
+        return value, position, remaining_depth
 
     @staticmethod
-    def get_child_boards(board, player, previous_move : str, depth : int) -> List[Tuple[Board, str]]:
+    def get_child_boards(board, previous_move : List[str], depth : int) -> List[str]:
+        def fill_depth(total_point : int, index : int) -> Tuple[int, int]:
+            new_depth = np.ceil(total_point / (len(range_point) - index))
+            total_point -= new_depth
+            return new_depth, total_point
 
-        range_point = board.find_1_to_k_near_position()
-        child_boards = [(board.copy().play_to(player, pos), pos) for pos in board.can_play]
+        def right_key(raw_key : int):
+            keys = sorted(threshold.keys(), reverse=True)
+            for key in keys:
+                if key < raw_key:
+                    return key
+            return keys[-1]
 
-        child_boards.sort(
-            key=lambda x: (
-                next((index for index, points in enumerate(range_point) if x[1] in points), -1),
-                board.distance(previous_move, x[1])
-            )
-        )
-        return child_boards
+        threshold = {
+            0 : 1,
+            4 : 2,
+            5 : 3,
+            8 : 4,
+            10 : 6,
 
-    def adjust_child_value(self, player, child_value):
-        return child_value - 1 if child_value > 0 else child_value + 1
+        }
 
-    def evaluate_max(self, value, position, alpha, child_value, child_position):
+        child_mouv = board.find_1_to_k_near_position()
+        sorted_child_mouv = [sorted(k_near, key=lambda x: board.distance(x, previous_move[-1])) for k_near in child_mouv]
+        range_point = [mouv for k_range in sorted_child_mouv[:threshold[right_key(depth)]] for mouv in k_range]
+        #if len(range_point) > 1:
+        #flat_child_mouv = [mouv for k_range in range_point for mouv in k_range]
+
+        flat_child_mouv = range_point
+        total_depth = len(flat_child_mouv)
+
+
+
+        #asociated_depth = np.zeros([1] * len(flat_child_mouv), dtype=int)
+        #for index in range(len(range_point)):
+        #    asociated_depth[index], total_depth = fill_depth(total_depth, index)
+
+        return flat_child_mouv
+
+    @staticmethod
+    def adjust_child_value(child_value):
+        return child_value - 1 if child_value > 0 else child_value + 1 if child_value < 0 else child_value
+
+    @staticmethod
+    def evaluate_max(value, position, alpha, child_value, child_position):
         value, position = max((value, position), (child_value, child_position), key=lambda x: x[0])
         alpha = max(alpha, value)
         return value, position, alpha
 
-    def evaluate_min(self, value, position, beta, child_value, child_position):
+    @staticmethod
+    def evaluate_min(value, position, beta, child_value, child_position):
         value, position = min((value, position), (child_value, child_position), key=lambda x: x[0])
         beta = min(beta, value)
         return value, position, beta

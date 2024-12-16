@@ -85,7 +85,7 @@ class Board:
 
     def clean_move(self, move : str) -> Tuple[str, int, int]:
         if len(move) < 2 or not move[1:].isdigit() or not move[0].isalpha():
-            raise ValueError(f"Position must be a letter and a integer")
+            raise ValueError(f"Position must be a letter and a integer : {move}")
 
         move = move[0].upper() + move[1:]
 
@@ -216,13 +216,38 @@ class Board:
         return ~number & ((1 << self.width * self.height) - 1)
 
     def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
+
+        def get_k_near() -> Set[str]:
+            k_near = set()
+
+            offsets = [1, self.height, self.height - 1, self.height + 1]
+
+            for offset in offsets:
+                k_near |= get_k_near_by_direction(offset)
+
+            return k_near
+
+        def get_k_near_by_direction(offset : int) -> Set[str]:
+            k_near = set()
+            position_next_to_taken = mask ^ (mask >> offset)
+            position_next_to_taken &= self.bit_filter_1[offset]
+
+            for bit in range(self.height * self.width):
+                if (position_next_to_taken >> bit) & 1 == 1:
+                    if (mask >> bit) & 1 == 0:
+                        k_near.add(self.bit_to_coordinate(bit))
+                    else :
+                        k_near.add(self.bit_to_coordinate(bit + offset))
+
+            return k_near
+
         all_k_near = []
         mask = self.mask
 
 
         if k == - 1:
             while True :
-                near = self.get_k_near(mask)
+                near = get_k_near()
                 near = {x for x in near if not any(x in k_near for k_near in all_k_near)}
                 if len(near) == 0:
                     return all_k_near
@@ -232,7 +257,7 @@ class Board:
 
 
         for _ in range(1, k + 1):
-            near = self.get_k_near(mask)
+            near = get_k_near()
             near = {x for x in near if not any(x in k_near for k_near in all_k_near)}
             all_k_near.append(near)
             for position in near:
@@ -240,26 +265,4 @@ class Board:
 
         return all_k_near
 
-    def get_k_near(self, mask : int) -> Set[str]:
-        k_near = set()
 
-        offsets = [1, self.height, self.height - 1, self.height + 1]
-
-        for offset in offsets:
-            k_near |= self.get_k_near_by_direction(mask, offset)
-
-        return k_near
-
-    def get_k_near_by_direction(self, mask : int, offset : int) -> Set[str]:
-        k_near = set()
-        position_next_to_taken = mask ^ (mask >> offset)
-        position_next_to_taken &= self.bit_filter_1[offset]
-
-        for bit in range(self.height * self.width):
-            if (position_next_to_taken >> bit) & 1 == 1:
-                if (mask >> bit) & 1 == 0:
-                    k_near.add(self.bit_to_coordinate(bit))
-                else :
-                    k_near.add(self.bit_to_coordinate(bit + offset))
-
-        return k_near
