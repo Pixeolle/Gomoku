@@ -29,7 +29,7 @@ class Solver:
         depth = 4
         while datetime.now() < time_end and depth <= 4:
             best_move_find, value,_ = self.alpha_beta(board, [previous_move], player, depth, time_end)
-            print(best_move_find)
+            print(f"{best_move_find=}")
             if best_move_find is not None:
                 best_move = best_move_find
             print(f"Profondeur = {depth}, Mouvement = {best_move_find}, Valeur = {value}")
@@ -39,13 +39,10 @@ class Solver:
 
     def alpha_beta(self, board : Board, previous_move : List[str], player : int, depth : int, time_end : datetime, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[List[str], int, int]:
         alpha_origin = alpha
+        """
         board_saved = self.get(board)
 
-        #print(f"Depth = {depth}")
-        #print(previous_move)
-        #print("Hello")
-        #print(f"{previous_move=}")
-
+        
         if Solver.is_saved_deeper_or_equal(board_saved, depth):
             if board_saved[2] == "exact":
 
@@ -59,6 +56,7 @@ class Solver:
             if alpha >= beta:
                 return [board_saved[0]], board_saved[1], depth
 
+        """
         winner = board.is_winning
         if winner is not None:
             #print("Final State find")
@@ -87,14 +85,14 @@ class Solver:
         position = None
         remaining_depth = 0
 
-        print(f"{previous_move} {child_movs}")
+        print(f"Previous {previous_move} Child{child_movs}")
 
         child_index = 0
         while child_index < len(child_movs) and datetime.now() <= time_end:
 
             move_line = previous_move + [child_movs[child_index]]
             child_board = board.copy().play_to(player, child_movs[child_index])
-            _, child_value, remaining_depth = self.alpha_beta(child_board, move_line, next_player, depth - 1, time_end, -beta, -alpha)
+            _, child_value, remaining_depth = self.alpha_beta(child_board, move_line, next_player, depth - 1, time_end, alpha, beta)
 
 
             child_value = Solver.adjust_child_value(child_value)
@@ -104,7 +102,7 @@ class Solver:
             else:
                 value, position, beta = Solver.evaluate_min(value, position, beta, child_value, child_movs[child_index])
 
-            print(f"{position} {value} {alpha} {beta}")
+            print(f"Deepth {depth} : {child_movs[child_index]} {value} {alpha=} {beta=}")
             if alpha >= beta or alpha > 60 or beta < -60:
                 print(f"Cut : {len(child_movs) - 1 - child_index}")
                 break
