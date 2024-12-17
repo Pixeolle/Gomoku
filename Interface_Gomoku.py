@@ -3,6 +3,7 @@ from PyQt5.QtWidgets import (QApplication, QMainWindow, QWidget, QVBoxLayout, QL
 from PyQt5.QtGui import QPainter, QColor, QPen, QFont, QFontDatabase
 from PyQt5.QtCore import Qt, QPoint, QTimer
 from board import Board
+from solver import Solver
 import random
 
 
@@ -12,7 +13,7 @@ class Config:
         self.board_height = 15
         self.cell_size = 40
         self.grid_margin = 60
-        self.window_size = (800, 800)
+        self.window_size = (1000, 1000)
         self.background_color = '#c8b496'
         self.font_name = 'Bebas Neue'
         self.font_size = 20
@@ -69,6 +70,9 @@ class GomokuGUI(QMainWindow):
         self.initUI()
         self.move_history = []
         self.setWindowTitle('Gomoku Game')
+        self.game_mode = None
+        self.game_over = False
+
 
     def initUI(self):
         self.resize(*self.config.window_size)
@@ -83,6 +87,18 @@ class GomokuGUI(QMainWindow):
         self.stacked_widget = QStackedWidget(self.central_widget)
         self.layout = QVBoxLayout(self.central_widget)
         self.layout.addWidget(self.stacked_widget)
+
+        self.menu_widget = QWidget()
+        menu_layout = QVBoxLayout(self.menu_widget)
+        pvp_button = QPushButton("Joueur contre Joueur")
+        pvb_button = QPushButton("Joueur contre Bot")
+
+        pvp_button.clicked.connect(self.start_pvp)
+        pvb_button.clicked.connect(self.start_pve)
+
+        menu_layout.addWidget(pvp_button)
+        menu_layout.addWidget(pvb_button)
+        self.stacked_widget.addWidget(self.menu_widget)
 
         self.game_widget = QWidget()
         game_layout = QVBoxLayout(self.game_widget)
@@ -102,7 +118,19 @@ class GomokuGUI(QMainWindow):
         game_layout.addWidget(self.canvas, alignment=Qt.AlignCenter)
         game_layout.addSpacerItem(QSpacerItem(0, 0, QSizePolicy.Expanding, QSizePolicy.Expanding))
         self.stacked_widget.addWidget(self.game_widget)
+        self.stacked_widget.setCurrentWidget(self.menu_widget)
         self.show()
+
+
+    def start_pvp(self):
+        self.game_mode = "PVP"
+        self.stacked_widget.setCurrentWidget(self.game_widget)
+
+    def start_pve(self):
+        self.game_mode = "PVE"
+        self.stacked_widget.setCurrentWidget(self.game_widget)
+        if self.current_player == 2:
+            QTimer.singleShot(500, self.bot_move)
 
     def resizeEvent(self, event):
         window_width = self.width()
@@ -122,11 +150,28 @@ class GomokuGUI(QMainWindow):
         self.undo_button.setEnabled(True)
         winner = self.board.is_winning
         if winner is not None:
-            QTimer.singleShot(1000, lambda: self.show_winner(winner))
+            self.game_over = True
+            QTimer.singleShot(500, lambda: self.show_winner(winner))
             self.undo_button.setEnabled(False)
         else:
             self.current_player = 1 if self.current_player == 2 else 2
             self.label.setText(f'Player {self.current_player}\'s turn')
+            if self.game_mode == "PVE" and self.current_player == 2:
+                QTimer.singleShot(500, self.bot_move)
+
+
+    def bot_move(self):
+        if not self.move_history:
+            bot_move = 'H7'
+        else:
+            solver = Solver()
+            bot_move = solver.solve(self.board, 2, self.move_history[-1])
+        try:
+            self.board.play_to(2, bot_move)
+            self.update_status(bot_move)
+            self.canvas.update()
+        except ValueError as e:
+            print(f"Erreur : {e}")
 
     def show_winner(self, winner):
         result_screen = ResultWindow(winner, self)
@@ -142,6 +187,7 @@ class GomokuGUI(QMainWindow):
         self.undo_button.setEnabled(False)
         self.canvas.update()
         self.stacked_widget.setCurrentWidget(self.game_widget)
+        self.game_over = False
 
     def undo_move(self):
         if not self.move_history:
@@ -228,6 +274,9 @@ class GameBoard(QWidget):
                 qp.setBrush(Qt.NoBrush)
 
     def mousePressEvent(self, event):
+        if self.parent.game_over:
+            return
+
         x = event.x()
         y = event.y()
         x -= self.grid_margin
