@@ -4,19 +4,26 @@
     <option name="autoReloadType" value="SELECTIVE" />
   </component>
   <component name="ChangeListManager">
-    <list default="true" id="8160d8e7-bb4d-4996-a323-ef62cd536edf" name="Changes" comment="">
+    <list default="true" id="8160d8e7-bb4d-4996-a323-ef62cd536edf" name="Changes" comment="Fix check win">
+      <change beforePath="$PROJECT_DIR$/.idea/workspace.xml" beforeDir="false" afterPath="$PROJECT_DIR$/.idea/workspace.xml" afterDir="false" />
       <change beforePath="$PROJECT_DIR$/Gomoku.iml" beforeDir="false" afterPath="$PROJECT_DIR$/Gomoku.iml" afterDir="false" />
-      <change beforePath="$PROJECT_DIR$/Interface_Gomoku.py" beforeDir="false" afterPath="$PROJECT_DIR$/Interface_Gomoku.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/board.py" beforeDir="false" afterPath="$PROJECT_DIR$/board.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/game.py" beforeDir="false" afterPath="$PROJECT_DIR$/game.py" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/solver.py" beforeDir="false" afterPath="$PROJECT_DIR$/solver.py" afterDir="false" />
     </list>
     <option name="SHOW_DIALOG" value="false" />
     <option name="HIGHLIGHT_CONFLICTS" value="true" />
     <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
     <option name="LAST_RESOLUTION" value="IGNORE" />
   </component>
+  <component name="ComposerSettings">
+    <execution />
+  </component>
   <component name="FileTemplateManagerImpl">
     <option name="RECENT_TEMPLATES">
       <list>
         <option value="Python Script" />
+        <option value="JavaScript File" />
       </list>
     </option>
   </component>
@@ -32,13 +39,18 @@
   <component name="GithubPullRequestsUISettings">{
   &quot;selectedUrlAndAccountId&quot;: {
     &quot;url&quot;: &quot;https://github.com/Pixeolle/Gomoku.git&quot;,
-    &quot;accountId&quot;: &quot;8e1c6a82-c945-47a9-8cc3-66ab41499363&quot;
+    &quot;accountId&quot;: &quot;e5e47660-47c2-4a25-9f5a-2d24d2d588a0&quot;
   }
 }</component>
+  <component name="PhpDebugGeneral" listening_started="true" />
+  <component name="PhpWorkspaceProjectConfiguration" interpreter_name="PHP Herd" />
   <component name="ProjectColorInfo">{
   &quot;associatedIndex&quot;: 8
 }</component>
   <component name="ProjectId" id="2pdNWujceyjum9Dwdhn5N0ERF8B" />
+  <component name="ProjectLevelVcsManager" settingsEditedManually="true">
+    <ConfirmationsSetting value="2" id="Add" />
+  </component>
   <component name="ProjectViewState">
     <option name="hideEmptyMiddlePackages" value="true" />
     <option name="showLibraryContents" value="true" />
@@ -48,8 +60,10 @@
     &quot;Python.Interface_Gomoku.executor&quot;: &quot;Run&quot;,
     &quot;Python.game.executor&quot;: &quot;Run&quot;,
     &quot;RunOnceActivity.ShowReadmeOnStart&quot;: &quot;true&quot;,
+    &quot;RunOnceActivity.git.unshallow&quot;: &quot;true&quot;,
     &quot;git-widget-placeholder&quot;: &quot;master&quot;,
     &quot;kotlin-language-version-configured&quot;: &quot;true&quot;,
+    &quot;last_opened_file_path&quot;: &quot;C:/Users/olbnf/Downloads/rapfi-master&quot;,
     &quot;node.js.detected.package.eslint&quot;: &quot;true&quot;,
     &quot;node.js.detected.package.tslint&quot;: &quot;true&quot;,
     &quot;node.js.selected.package.eslint&quot;: &quot;(autodetect)&quot;,
@@ -58,6 +72,7 @@
     &quot;project.structure.last.edited&quot;: &quot;Modules&quot;,
     &quot;project.structure.proportion&quot;: &quot;0.15&quot;,
     &quot;project.structure.side.proportion&quot;: &quot;0.2&quot;,
+    &quot;settings.editor.selected.configurable&quot;: &quot;preferences.keymap&quot;,
     &quot;vue.rearranger.settings.migration&quot;: &quot;true&quot;
   }
 }</component>
@@ -99,8 +114,8 @@
   <component name="SharedIndexes">
     <attachedChunks>
       <set>
-        <option value="bundled-jdk-9823dce3aa75-28b599e66164-intellij.indexing.shared.core-IU-242.23726.103" />
-        <option value="bundled-js-predefined-d6986cc7102b-5c90d61e3bab-JavaScript-IU-242.23726.103" />
+        <option value="bundled-jdk-9823dce3aa75-fdfe4dae3a2d-intellij.indexing.shared.core-IU-243.22562.145" />
+        <option value="bundled-js-predefined-d6986cc7102b-deb605915726-JavaScript-IU-243.22562.145" />
       </set>
     </attachedChunks>
   </component>
@@ -122,7 +137,45 @@
       <workItem from="1733666172945" duration="4333000" />
       <workItem from="1733687088473" duration="39000" />
       <workItem from="1733932877436" duration="4447000" />
+      <workItem from="1734023815466" duration="14078000" />
+      <workItem from="1734167967803" duration="38546000" />
+      <workItem from="1734263905244" duration="12639000" />
+      <workItem from="1734301664641" duration="1918000" />
+      <workItem from="1734353961809" duration="4196000" />
+      <workItem from="1734370663505" duration="714000" />
+      <workItem from="1734378667401" duration="273000" />
+      <workItem from="1734382656736" duration="5251000" />
+      <workItem from="1734390139044" duration="107000" />
+      <workItem from="1734473082511" duration="12000" />
+      <workItem from="1734524582575" duration="21000" />
+      <workItem from="1734529293344" duration="243000" />
+      <workItem from="1734529543011" duration="7731000" />
     </task>
+    <task id="LOCAL-00001" summary="Tri des coups par distance">
+      <option name="closed" value="true" />
+      <created>1734170916313</created>
+      <option name="number" value="00001" />
+      <option name="presentableId" value="LOCAL-00001" />
+      <option name="project" value="LOCAL" />
+      <updated>1734170916313</updated>
+    </task>
+    <task id="LOCAL-00002" summary="A améliorer">
+      <option name="closed" value="true" />
+      <created>1734357931233</created>
+      <option name="number" value="00002" />
+      <option name="presentableId" value="LOCAL-00002" />
+      <option name="project" value="LOCAL" />
+      <updated>1734357931233</updated>
+    </task>
+    <task id="LOCAL-00003" summary="Fix check win">
+      <option name="closed" value="true" />
+      <created>1734534467406</created>
+      <option name="number" value="00003" />
+      <option name="presentableId" value="LOCAL-00003" />
+      <option name="project" value="LOCAL" />
+      <updated>1734534467406</updated>
+    </task>
+    <option name="localTasksCounter" value="4" />
     <servers />
   </component>
   <component name="TypeScriptGeneratedFilesManager">
@@ -151,8 +204,15 @@
       </map>
     </option>
   </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="Fix Undo final" />
+    <MESSAGE value="Tri des coups par distance" />
+    <MESSAGE value="A améliorer" />
+    <MESSAGE value="Fix check win" />
+    <option name="LAST_COMMIT_MESSAGE" value="Fix check win" />
+  </component>
   <component name="com.intellij.coverage.CoverageDataManagerImpl">
+    <SUITE FILE_PATH="coverage/Gomoku$Interface_Gomoku.coverage" NAME="Interface_Gomoku Coverage Results" MODIFIED="1734534783582" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
     <SUITE FILE_PATH="coverage/Gomoku$game.coverage" NAME="game Coverage Results" MODIFIED="1733258685680" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
-    <SUITE FILE_PATH="coverage/Gomoku$Interface_Gomoku.coverage" NAME="Interface_Gomoku Coverage Results" MODIFIED="1733937758657" SOURCE_PROVIDER="com.intellij.coverage.DefaultCoverageFileProvider" RUNNER="coverage.py" COVERAGE_BY_TEST_ENABLED="false" COVERAGE_TRACING_ENABLED="false" WORKING_DIRECTORY="$PROJECT_DIR$" />
   </component>
 </project>

@@ -33,7 +33,7 @@ print(board)
 a = None
 player = 1
 player_moves = [[], []]
-while board.is_winning is None:
+while board.is_winning is None and a != "quit":
 
     if player == 1:
         is_valid = False
@@ -54,12 +54,12 @@ while board.is_winning is None:
 
     player = 1 if player == 2 else 2
     print(board)
-
-winner = board.is_winning
-if winner in [-1, 1]:
-    print(f"Congratulations Player {winner} wins")
-else :
-    print(f"It's a draw")
+if a != "quit":
+    winner = board.is_winning
+    if winner in [-1, 1]:
+        print(f"Congratulations Player {winner} wins")
+    else :
+        print(f"It's a draw")
 
 
 

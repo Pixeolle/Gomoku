@@ -24,7 +24,7 @@ class Board:
 
         self.bit_filter_4 = {
             1 : Board.bit_builder(self.height - 4, 4, self.width),
-            height : Board.bit_builder(self.height * (self.width - 4), 0),
+            height : Board.bit_builder(self.height * (self.width - 4)),
             height - 1 : Board.bit_builder(self.height - 4, 4, self.width - 4, False),
             height + 1 : Board.bit_builder(self.height - 4, 4, self.width - 4)
         }

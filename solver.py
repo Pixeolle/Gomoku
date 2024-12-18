@@ -3,8 +3,6 @@ import random
 import numpy as np
 from typing import *
 
-from cupyx.fallback_mode.fallback import ndarray
-from numpy.f2py.crackfortran import groupbegins90
 
 from board import Board
 from datetime import datetime, timedelta
@@ -26,8 +24,8 @@ class Solver:
         time_end : datetime = datetime.now() + timedelta(seconds= self.timeout - self.offset)
         best_move = board.can_play[0]
 
-        depth = 4
-        while datetime.now() < time_end and depth <= 4:
+        depth = 8
+        while datetime.now() < time_end and depth <= 8:
             best_move_find, value,_ = self.alpha_beta(board, [previous_move], player, depth, time_end)
             print(f"{best_move_find=}")
             if best_move_find is not None:
