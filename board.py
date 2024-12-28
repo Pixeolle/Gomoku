@@ -29,7 +29,7 @@ class Board:
             height + 1 : Board.bit_builder(self.height - 4, 4, self.width - 4)
         }
 
-        self.key = (self.mask << self.height * self.width ) | self.position
+        self.key = (self.mask << self.height * self.width ) | self.position #changer pour representer le plateau sous base ternaire
 
     def __str__(self) -> str:
         number_to_object = {0: "\033[91mX\033[0m", 1: "\033[94mO\033[0m"}
@@ -63,15 +63,12 @@ class Board:
 
         return str_to_print
 
-    def __eq__(self, other) -> bool:
+    def __eq__(self, other : 'Board') -> bool:
         if isinstance(other, Board):
             return self.position == other.position and self.mask == other.mask
         return False
 
-    def __hash__(self) -> int:
-        return self.key
-
-    def copy(self):
+    def copy(self) -> 'Board':
         new_board = Board(self.height, self.width)
         new_board.position = self.position
         new_board.mask = self.mask
@@ -97,7 +94,7 @@ class Board:
 
         return move, line, column
 
-    def distance(self, move_1, move_2) -> float:
+    def distance(self, move_1 : str, move_2 : str) -> float:
         _, move_1_line, move_1_column = self.clean_move(move_1)
         _, move_2_line, move_2_column = self.clean_move(move_2)
         distance = max(abs(move_1_line - move_2_line), abs(move_1_column - move_2_column))
@@ -118,7 +115,7 @@ class Board:
         free_position = [self.bit_to_coordinate(bit) for bit in range(self.height * self.width) if (self.mask >> bit) & 1 == 0]
         return free_position
 
-    def bit_to_coordinate(self, bit) -> str:
+    def bit_to_coordinate(self, bit : int) -> str:
         if bit >= self.height * self.width:
             raise ValueError(f"Bit should be between 0 and {self.height * self.width - 1}")
         return chr(ord("A") + self.height - bit % self.height - 1) + str(self.width - bit // self.width - 1)
@@ -145,7 +142,7 @@ class Board:
         self.key = (self.mask << self.height * self.width ) | self.position
         return self
 
-    def undo_to(self, move : str):
+    def undo_to(self, move : str) -> 'Board':
         move, line, column = self.clean_move(move)
 
         if move in self.can_play :
@@ -168,9 +165,7 @@ class Board:
                 return True
             return False
 
-
         offsets = [1, self.height, self.height - 1, self.height + 1]
-
 
         for offset in offsets:
             if check_direction():
@@ -214,6 +209,143 @@ class Board:
 
     def invert_one_zero(self, number : int) -> int:
         return ~number & ((1 << self.width * self.height) - 1)
+
+    def rotated_key(self) -> List[int]:
+        def rotated_bit(bitboard : int) -> int:
+            rotated = 0
+            for row in range(self.height):
+                for col in range(self.width):
+                    if (bitboard >> (row * self.width + col)) & 1:
+                        rotated |= 1 << (col * self.height + (self.height - row - 1))
+            return rotated
+
+        position = self.position
+        mask = self.mask
+        keys = [self.key]
+
+        for _ in range(3):
+            mask = rotated_bit(mask)
+            position = rotated_bit(position)
+            keys.append((mask << self.height * self.width ) | position)
+
+        return keys
+
+    def turn_move(self, move : str, angle : int = 0):
+        middle_line = (self.height - 1) // 2
+        middle_column = (self.width - 1) // 2
+        _, line, column = self.clean_move(move)
+
+        match angle:
+            case 0 :
+                return move
+            case 1 :
+                return chr(ord('A') + middle_line - column + middle_column) + str(middle_column - middle_line + line)
+            case 2 :
+                return chr(ord('A') + 2 * middle_line - line) + str(2 * middle_column - column)
+            case 3 :
+                return chr(ord('A') + middle_line + column - middle_column) + str(middle_column + middle_line - line)
+            case _ :
+                raise ValueError(f"Angle is not valid : {angle}")
+
+    def invert_key(self) -> int:
+        position = self.invert_one_zero(self.position) & self.mask
+        key = (self.mask << self.height * self.width ) | position
+        return key
+
+    def forced_mouvs(self, player : int) -> Optional[List[str]]:
+
+        def select_k_by_offset_bit(bitboard : int, k : int, offset : int) -> int:
+            index = 1
+            result = bitboard & 1
+            while bitboard != 0 and index < k:
+                bitboard >>= offset
+                result |= ((bitboard & 1) << index)
+                index += 1
+
+            return result
+
+        def check_k_row(bitboard : int, opponent_bit : int, k : int) -> Optional[List[str]]:
+            if k == 5:
+                ones_need = 4
+            elif k == 6:
+                ones_need = 3
+            else:
+                raise ValueError (f"k must be 5 or 6 : {k}")
+
+            if self.count_ones(bitboard) < ones_need:
+                return
+
+            offsets = [1, self.height, self.height - 1, self.height + 1]
+            bit_offset = 0
+            ones_mask = (1 << (self.height + 1) * (k - 1) + 1) - 1
+            while bit_offset < self.height * self.height and self.count_ones((bitboard >> bit_offset)) >= ones_need: # Ajouter une contrainte pour éviter les zones vides avant la zone interessante
+
+
+                if self.count_ones((bitboard >> bit_offset) & ones_mask) < ones_need:
+                    bit_offset += 1
+                    continue
+
+                for offset in offsets:
+                    if offset == 1 and bit_offset % self.height > self.height - k:
+                        break
+                    elif offset == self.height and bit_offset // self.width > self.height - k:
+                        break
+                    elif offset == self.height - 1 and bit_offset // self.width > self.height - k and bit_offset % self.height < k:
+                        break
+                    elif offset == self.height + 1 and bit_offset // self.width > self.height - k and bit_offset % self.height > self.height - k:
+                        break
+
+                    selected_bit = select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
+                    select_opponent = select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
+
+                    if select_opponent != 0:
+                        continue
+
+                    if k == 5:
+                        match selected_bit:
+                            case 0b01111:
+                                return [self.bit_to_coordinate(bit_offset + 4 * offset)]
+                            case 0b10111:
+                                return [self.bit_to_coordinate(bit_offset + 3 * offset)]
+                            case 0b11011:
+                                return [self.bit_to_coordinate(bit_offset + 2 * offset)]
+                            case 0b11101:
+                                return [self.bit_to_coordinate(bit_offset + 1 * offset)]
+                            case 0b11110:
+                                return [self.bit_to_coordinate(bit_offset)]
+                    elif k == 6:
+                        match selected_bit:
+                            case 0b001110:
+                                return [self.bit_to_coordinate(bit_offset + 4 * offset), self.bit_to_coordinate(bit_offset)]
+                            case 0b010110:
+                                return [self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
+                            case 0b011010:
+                                return [self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
+                            case 0b011100:
+                                return [self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
+
+
+                bit_offset += 1
+
+        player_board = self.position if player == 1 else self.position ^ self.mask
+        opponent_board = self.position if player == 2 else self.position ^ self.mask
+
+        check_4_player = check_k_row(player_board, opponent_board, 5)
+        if check_4_player is not None:
+            return check_4_player
+        check_4_opponent = check_k_row(opponent_board, player_board, 5)
+        if check_4_opponent is not None:
+            return check_4_opponent
+        check_3_player = check_k_row(player_board, opponent_board, 6)
+        if check_3_player is not None:
+            return check_3_player
+        check_3_opponent = check_k_row(opponent_board, player_board,6)
+        if check_3_opponent is not None:
+            return check_3_opponent
+        return None
+
+
+
 
     def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
 
@@ -264,5 +396,3 @@ class Board:
                 mask |= (1 << self.coordinate_to_bit(position))
 
         return all_k_near
-
-
