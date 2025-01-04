@@ -13,7 +13,6 @@ class Board:
 
         self.position : int = 0
         self.mask : int = 0
-        self.bottom : int = 0
 
         self.bit_filter_1 = {
             1 : Board.bit_builder(height - 1, 1, width),
@@ -72,7 +71,6 @@ class Board:
         new_board = Board(self.height, self.width)
         new_board.position = self.position
         new_board.mask = self.mask
-        new_board.bottom = self.bottom
         new_board.key = self.key
         return new_board
 
@@ -127,7 +125,7 @@ class Board:
     def play_to(self, player : int, move : str) -> 'Board':
 
         if player not in [1, 2]:
-            raise ValueError("Player is not 1 or 2")
+            raise ValueError(f"Player is not 1 or 2 : {player}")
 
         move, line, column = self.clean_move(move)
 
@@ -282,24 +280,27 @@ class Board:
 
 
                 if self.count_ones((bitboard >> bit_offset) & ones_mask) < ones_need:
+                    #print(f"{bit_offset} {(bitboard >> bit_offset) & ones_mask:0{(self.height + 1) * (k - 1)}b} Delete")
                     bit_offset += 1
                     continue
 
                 for offset in offsets:
                     if offset == 1 and bit_offset % self.height > self.height - k:
-                        break
+                        continue
                     elif offset == self.height and bit_offset // self.width > self.height - k:
-                        break
+                        continue
                     elif offset == self.height - 1 and bit_offset // self.width > self.height - k and bit_offset % self.height < k:
-                        break
+                        continue
                     elif offset == self.height + 1 and bit_offset // self.width > self.height - k and bit_offset % self.height > self.height - k:
-                        break
+                        continue
 
                     selected_bit = select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
                     select_opponent = select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
 
                     if select_opponent != 0:
                         continue
+
+                    #print(f"{bit_offset} {offset} {selected_bit:0{k}b} {select_opponent:0{k}b}")
 
                     if k == 5:
                         match selected_bit:
@@ -324,7 +325,6 @@ class Board:
                             case 0b011100:
                                 return [self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
 
-
                 bit_offset += 1
 
         player_board = self.position if player == 1 else self.position ^ self.mask
@@ -343,9 +343,6 @@ class Board:
         if check_3_opponent is not None:
             return check_3_opponent
         return None
-
-
-
 
     def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
 

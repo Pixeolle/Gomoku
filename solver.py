@@ -24,8 +24,8 @@ class Solver:
         time_end : datetime = datetime.now() + timedelta(seconds= self.timeout - self.offset)
         best_move = board.can_play[0]
 
-        depth = 8
-        while datetime.now() < time_end and depth <= 8:
+        depth = 4
+        while datetime.now() < time_end and depth <= 4:
             best_move_find, value,_ = self.alpha_beta(board, [previous_move], player, depth, time_end)
             print(f"{best_move_find=}")
             if best_move_find is not None:

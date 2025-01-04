@@ -1,4 +1,6 @@
+import datetime
 import math
+from datetime import datetime, timedelta
 from typing import *
 from board import Board
 
@@ -30,13 +32,20 @@ class AI:
         best_move = None
         best_value = None
         best_flag = None
+        depth = 1
 
-        for depth in range(4, 5):
+        end = datetime.now() + timedelta(seconds=60)
+
+        while datetime.now() < end :
             value, move, flag = self.alphabeta_open(board, depth, player)
             if best_value is None or value >= best_value:
                 best_move = move
                 best_value = value
                 best_flag = flag
+
+            depth += 1
+
+        print(f"Depth = {depth}")
 
         return best_value, best_move, best_flag
 
@@ -80,6 +89,39 @@ class AI:
 
         return board_rating , best_move, flag
 
+    def negamax(self, board : Board, depth : int, player : int, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[int, Optional[str], str]:
+        winner = board.is_winning
+        if winner is not None:
+            return winner * (self.win_weight + 1) , None, "exact"
+
+        if depth == 0:
+            return 0, None, "heuristic"
+
+        child_moves = self.get_child_mouvs(board, player)
+        next_player = 1 if player == 2 else 2
+        print(f"{next_player=}")
+        best_value = -self.win_weight
+        best_move = None
+        flag = ""
+        depth -= 1
+
+        for child_move in child_moves:
+            board.play_to(player, child_move)
+            value,_, child_flag = self.alphabeta_open(board, depth, next_player, -beta, -alpha)
+            board.undo_to(child_move)
+
+            value += 1 if value < 0 else - 1 if value > 0 else 0
+
+            if best_value < -value:
+                value *= -1 if player == 2 else 1
+                alpha = max(alpha, value)
+                best_move = child_move
+                flag = child_flag
+
+            if  alpha >= beta or alpha == self.win_weight or beta == -self.win_weight :
+                break
+
+        return best_value, best_move, flag
 
     def alphabeta_open(self, board : Board, depth : int, player : int, alpha : int = -float("inf"), beta : int = float("inf"), keys : List[str] = None) -> Tuple[int, Optional[str], str]:
 
@@ -94,7 +136,6 @@ class AI:
 
         saved_board = self.get_board(board)
         if saved_board is not None:
-            print("Transposition")
             self.tot += math.prod(range(len(board.can_play), len(board.can_play) - depth, -1))
             self.prunning += math.prod(range(len(board.can_play), len(board.can_play) - depth, -1))
             return saved_board[1], saved_board[0], "saved"
@@ -153,6 +194,7 @@ class AI:
         if mouvs is None :
             mouvs = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
 
+        mouvs = mouvs[:14]
         return mouvs
 
     def add_to_tree(self, keys, value):
