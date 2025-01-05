@@ -136,12 +136,13 @@ def against_ai():
             move_former = ai.negamax(board, 4, player)
             time_former = datetime.now() - start_former
             winsound.Beep(440, 300)
-            print(f"Coups : {ai.prunning} soit {ai.prunning / ai.tot}")
+            #print(f"Coups : {ai.prunning} soit {ai.prunning / ai.tot}")
             print(f"Value : {move_former[0]} | Move : {move_former[1]} | Flag : {move_former[2]} | Time : {time_former} ")
             board.play_to(player, move_former[1])
 
 
         print(board)
+        """
         if player == 2:
             request_valid = False
             user_input = ""
@@ -154,6 +155,7 @@ def against_ai():
             if user_input == "y":
                 nav_tree(ai)
                 print(board)
+        """
 
         player = 1 if player == 2 else 2
 

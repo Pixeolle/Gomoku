@@ -89,7 +89,7 @@ class AI:
 
         return board_rating , best_move, flag
 
-    def negamax(self, board : Board, depth : int, player : int, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[int, Optional[str], str]:
+    def negamax_1(self, board : Board, depth : int, player : int, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[int, Optional[str], str]:
         winner = board.is_winning
         if winner is not None:
             return winner * (self.win_weight + 1) , None, "exact"
@@ -119,6 +119,43 @@ class AI:
                 flag = child_flag
 
             if  alpha >= beta or alpha == self.win_weight or beta == -self.win_weight :
+                break
+
+        return best_value, best_move, flag
+
+
+    def negamax(self, board: Board, depth: int, player: int, alpha: int = -float("inf"), beta: int = float("inf")) -> Tuple[int, Optional[str], str]:
+
+        winner = board.is_winning
+        if winner is not None:
+            return winner * (self.win_weight + 1), None, "exact"
+
+
+        if depth == 0:
+            return 0, None, "heuristic"
+
+        child_moves = self.get_child_mouvs(board, player)
+        next_player = 1 if player == 2 else 2
+        best_value = -float("inf")
+        best_move = None
+        flag = "exact"
+
+        for child_move in child_moves:
+            board.play_to(player, child_move)
+            value, _, child_flag = self.negamax(board, depth - 1, next_player, -beta, -alpha)
+            value = -value
+            board.undo_to(child_move)
+
+            value += 1 if value < 0 else -1 if value > 0 else 0
+
+            if value > best_value:
+                best_value = value
+                best_move = child_move
+                flag = child_flag
+
+            alpha = max(alpha, best_value)
+
+            if alpha >= beta or alpha == self.win_weight or beta == -self.win_weight:
                 break
 
         return best_value, best_move, flag
