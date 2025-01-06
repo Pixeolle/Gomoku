@@ -343,20 +343,63 @@ class Board:
             return check_3_opponent
         return None
 
-    def heuristic(self, value : int, move : str, player : int) -> int:
+    def heuristique(self, value : int, move : str, player : int) -> int:
 
         def heuristic_direction(bit_shift, offset : int, player_bits : int, opponent_bits : int) -> int:
+            weight = {
+                2 : 10,
+                3 : 100,
+                4 : 1000,
+                5 : 10000
+            }
+
+            max_player_stone = 0
+            max_opponent_stone = 0
             for i in range(5):
-                player_bits >>= bit_shift - i * offset
-                opponent_bits >>= bit_shift - i * offset
+                player_bit = (player_bits >> bit_shift - i * offset)
+                opponent_bit = (opponent_bits >> bit_shift - i * offset)
 
-                player_selection = self.select_k_by_offset_bit(player_bits, 5, offset)
-                opponent_selection = self.select_k_by_offset_bit(opponent_bits, 5, offset)
+                player_selection = self.select_k_by_offset_bit(player_bit, 5, offset)
+                opponent_selection = self.select_k_by_offset_bit(opponent_bit, 5, offset)
 
-                
+                if self.count_ones(opponent_selection) == 0:
+                    player_stone = self.count_ones(player_selection)
+                    if player_stone > max_player_stone:
+                        max_player_stone = player_stone
+
+            for i in range(6):
+                opponent_stone = 0
+
+                player_bit = (player_bits >> bit_shift - i * offset)
+                opponent_bit = (opponent_bits >> bit_shift - i * offset)
+
+                if player_bit & 1 != 0 :
+                    break
+
+                player_selection = self.select_k_by_offset_bit(player_bit, 6, offset)
+                if self.count_ones(player_selection) != 2:
+                    break
+
+                opponent_selection = self.select_k_by_offset_bit(opponent_bit, 6, offset)
+                player_selection >>= 1
+                opponent_selection >>= 1
+
+                for i in range(4):
+                    if opponent_selection & 1 == 1:
+                        opponent_stone += 1
+                    elif player_selection & 1 == 1:
+                        break
+
+                    player_selection >>= 1
+                    opponent_selection >>= 1
+
+                if opponent_stone > max_opponent_stone:
+                    max_opponent_stone = opponent_stone
 
 
-            return 0
+            if player == 1:
+                return weight.get(max_player_stone, 0) - weight.get(max_opponent_stone , 0)
+            return weight.get(max_opponent_stone, 0) - weight.get(max_player_stone , 0)
 
 
         player_bits = self.position if player == 1 else self.position ^ self.mask
@@ -367,6 +410,88 @@ class Board:
 
         for offset in offsets:
             value += heuristic_direction(bit_shift, offset, player_bits, opponent_bits)
+
+        return value
+
+    def heuristic(self, value: int, move: str, player: int) -> int:
+        def evaluate_sequence(sequence: int, length: int) -> tuple[int, bool]:
+            """Évalue une séquence de pierres
+            Returns:
+                tuple[score, is_open]: score de la séquence et si elle est ouverte
+            """
+            stones = self.count_ones(sequence)
+            if stones == 0:
+                return 0, False
+
+            # Vérifie si la séquence est ouverte (espace vide aux extrémités)
+            is_open = (sequence & (1 << (length-1))) == 0 and (sequence & 1) == 0
+
+            # Scores pour différentes configurations
+            scores = {
+                1: 1,      # Pierre isolée
+                2: 10,     # Deux pierres
+                3: 100,    # Trois pierres
+                4: 1000,   # Quatre pierres
+                5: 10000   # Cinq pierres (victoire)
+            }
+
+            multiplier = 2 if is_open else 1  # Séquence ouverte vaut plus
+            return scores.get(stones, 0) * multiplier, is_open
+
+        def analyze_direction(bit_shift: int, offset: int, player_bits: int, opponent_bits: int) -> int:
+            score = 0
+
+            # Analyse les séquences possibles autour du coup
+            for window_size in range(5, 2, -1):
+                for i in range(window_size):
+                    # Extrait la fenêtre centrée sur le coup
+                    start_shift = bit_shift - i * offset
+                    player_window = self.select_k_by_offset_bit(
+                        player_bits >> start_shift,
+                        window_size,
+                        offset
+                    )
+                    opponent_window = self.select_k_by_offset_bit(
+                        opponent_bits >> start_shift,
+                        window_size,
+                        offset
+                    )
+
+                    # Si pas de pierre adverse dans la fenêtre
+                    if opponent_window == 0:
+                        player_score, is_open = evaluate_sequence(player_window, window_size)
+                        if player == 1:
+                            score += player_score
+                        else:
+                            score -= player_score
+
+                    # Vérifie si on bloque une séquence adverse
+                    if player_window == 0:
+                        blocked_score, was_open = evaluate_sequence(opponent_window, window_size)
+                        if was_open:
+                            if player == 1:
+                                score += blocked_score // 2  # Bonus pour bloquer
+                            else:
+                                score -= blocked_score // 2
+
+            return score
+
+        # Initialise les bits pour le joueur et l'adversaire
+        player_bits = self.position if player == 1 else self.position ^ self.mask
+        opponent_bits = self.position if player == 2 else self.position ^ self.mask
+        bit_shift = self.coordinate_to_bit(move)
+
+        # Analyse dans toutes les directions
+        directions = [
+            1,              # Horizontal
+            self.height,    # Vertical
+            self.height-1,  # Diagonale /
+            self.height+1   # Diagonale \
+        ]
+
+        for offset in directions:
+            direction_score = analyze_direction(bit_shift, offset, player_bits, opponent_bits)
+            value += direction_score
 
         return value
 

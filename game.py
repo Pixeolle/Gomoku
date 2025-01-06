@@ -27,9 +27,7 @@ check_defense = (5192376087906286159226792757428224, 510431338905924868895035403
 def generate_board_id():
 
     board = Board()
-    #board.position = 45718620351076546948843949308563138826916069376
-    #board.mask = 1712841491893727920171248923237171650074924548096
-    #board.key = 92356230541475279300523438875616598032420803406933750624156058529001659443532863658820304698955891410492072392654848
+    value_board = 0
     print(board)
     player = 1
     input_player = ""
@@ -47,17 +45,15 @@ def generate_board_id():
                 print(f"Error : {e}")
 
         print(board)
-        print(f"Position : {board.position}")
-        print(f"Mask : {board.mask}")
-        print(f"Key : {board.key}")
         start = datetime.now()
+        value_board = board.heuristic(value_board, input_player, player)
+        print(f"Temps : {datetime.now() - start}")
+        print(f"Value Board : {value_board}")
         a = board.forced_mouvs(player)
-        time_elapsed = datetime.now() - start
-        print(f"Time = {time_elapsed}")
         print(f"{a}")
+
+
     print(f"Winner = {board.is_winning}")
-
-
 
     return board.position, board.mask
 
@@ -114,6 +110,8 @@ def test():
 def against_ai():
     board = Board()
     ai = AI(board)
+    value_board = 0
+
     print(board)
     player = 1
     input_player = ""
@@ -126,6 +124,7 @@ def against_ai():
                     input_player = input("")
                     if input_player != "stop":
                         board.play_to(player, input_player)
+                        value_board = board.heuristic(value_board, input_player, player)
                     move_valid = True
                 except Exception as e:
                     print(f"Error : {e}")
@@ -133,30 +132,14 @@ def against_ai():
             ai.prunning = 0
             ai.tot = 0
             start_former = datetime.now()
-            move_former = ai.search(board, player)
+            move_former = ai.search(board, player, value_board)
             time_former = datetime.now() - start_former
-            #winsound.Beep(440, 300)
-            #print(f"Coups : {ai.prunning} soit {ai.prunning / ai.tot}")
             print(f"Value : {move_former[0]} | Move : {move_former[1]} | Flag : {move_former[2]} | Time : {time_former} ")
             board.play_to(player, move_former[1])
+            value_board = board.heuristic(value_board, input_player, player)
 
 
         print(board)
-        """
-        if player == 2:
-            request_valid = False
-            user_input = ""
-            while not request_valid:
-                user_input = input("Do you want to see the tree search (y/n)")
-                if user_input.lower() == "y" or user_input.lower() == "n":
-                    request_valid = True
-                else:
-                    print("Input not valid")
-            if user_input == "y":
-                nav_tree(ai)
-                print(board)
-        """
-
         player = 1 if player == 2 else 2
 
 
@@ -241,6 +224,25 @@ def test_forced_move():
     average_time = total_time / n
     print(f"Average execution time over {n} runs: {average_time}")
 
-#generate_board_id()
+generate_board_id()
 #test_forced_move()
-against_ai()
+#against_ai()
+
+
+
+
+
+"""
+        if player == 2:
+            request_valid = False
+            user_input = ""
+            while not request_valid:
+                user_input = input("Do you want to see the tree search (y/n)")
+                if user_input.lower() == "y" or user_input.lower() == "n":
+                    request_valid = True
+                else:
+                    print("Input not valid")
+            if user_input == "y":
+                nav_tree(ai)
+                print(board)
+        """

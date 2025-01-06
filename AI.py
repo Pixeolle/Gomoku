@@ -29,17 +29,17 @@ class AI:
                 return stored_value
         return None
 
-    def search(self, board : Board, player : int) -> Tuple[int, Optional[str], str]:
+    def search(self, board : Board, player : int, value_board : int) -> Tuple[int, Optional[str], str]:
         best_move = None
         best_value = None
         best_flag = None
         depth = self.iterative
 
-        end = datetime.now() + timedelta(seconds=4.9)
+        end = datetime.now() + timedelta(seconds=60)
 
         try:
             while datetime.now() < end and depth <= board.remaining_moves:
-                value, move, flag = self.negascout(board.copy(), depth, player, end, -float("inf"), float("inf"))
+                value, move, flag = self.negamax(board.copy(), depth, player, end, value_board)
                 if move is not None:
                     best_move = move
                     best_value = value
@@ -54,82 +54,8 @@ class AI:
 
         return best_value, best_move, best_flag
 
-    def alphabeta(self, board : Board, depth : int, player : int, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[int, Optional[str], str]:
 
-        winner = board.is_winning
-        if winner is not None:
-            return winner * (self.win_weight + 1) , None, "exact"
-
-        if depth == 0:
-            return 0, None, "heuristic"
-
-        child_moves = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
-        next_player = 1 if player == 2 else 2
-        best_move = None
-        flag = ""
-        depth -= 1
-
-        for index, child_move in enumerate(child_moves, 1):
-            board.play_to(player, child_move)
-            value,_, child_flag = self.alphabeta_open(board, depth, next_player, alpha, beta)
-            board.undo_to(child_move)
-
-            value += 1 if value < 0 else - 1 if value > 0 else 0
-
-            if player == 1:
-                if alpha < value:
-                    alpha = value
-                    best_move = child_move
-                    flag = child_flag
-            else:
-                if beta > value:
-                    beta = value
-                    best_move = child_move
-                    flag = child_flag
-
-            if  alpha >= beta or alpha == self.win_weight or beta == -self.win_weight :
-                break
-
-        board_rating = alpha if player == 1 else beta
-
-        return board_rating , best_move, flag
-
-    def negamax_1(self, board : Board, depth : int, player : int, alpha : int = -float("inf"), beta : int = float("inf")) -> Tuple[int, Optional[str], str]:
-        winner = board.is_winning
-        if winner is not None:
-            return winner * (self.win_weight + 1) , None, "exact"
-
-        if depth == 0:
-            return 0, None, "heuristic"
-
-        child_moves = self.get_child_mouvs(board, player)
-        next_player = 1 if player == 2 else 2
-        print(f"{next_player=}")
-        best_value = -self.win_weight
-        best_move = None
-        flag = ""
-        depth -= 1
-
-        for child_move in child_moves:
-            board.play_to(player, child_move)
-            value,_, child_flag = self.alphabeta_open(board, depth, next_player, -beta, -alpha)
-            board.undo_to(child_move)
-
-            value += 1 if value < 0 else - 1 if value > 0 else 0
-
-            if best_value < -value:
-                value *= -1 if player == 2 else 1
-                alpha = max(alpha, value)
-                best_move = child_move
-                flag = child_flag
-
-            if  alpha >= beta or alpha == self.win_weight or beta == -self.win_weight :
-                break
-
-        return best_value, best_move, flag
-
-
-    def negamax(self, board: Board, depth: int, player: int, end_time : datetime, alpha: int = -float("inf"), beta: int = float("inf")) -> Tuple[int, Optional[str], str]:
+    def negamax(self, board: Board, depth: int, player: int, end_time : datetime, value_board : int,  alpha: int = -float("inf"), beta: int = float("inf")) -> Tuple[float, Optional[str], str]:
 
         winner = board.is_winning
         if winner is not None:
@@ -137,9 +63,9 @@ class AI:
 
 
         if depth == 0 or datetime.now() > end_time:
-            return 0, None, "heuristic"
+            return value_board / 10000, None, "heuristic"
 
-        child_moves = self.get_child_mouvs(board, player)
+        child_moves = self.get_child_mouvs(board, player, value_board)
         next_player = 1 if player == 2 else 2
         best_value = -float("inf")
         best_move = None
@@ -147,7 +73,7 @@ class AI:
 
         for child_move in child_moves:
             board.play_to(player, child_move)
-            value, _, child_flag = self.negamax(board, depth - 1, next_player, end_time, -beta, -alpha)
+            value, _, child_flag = self.negamax(board, depth - 1, next_player, end_time, value_board, -beta, -alpha)
             value = -value
             board.undo_to(child_move)
 
@@ -180,7 +106,7 @@ class AI:
         if stored is not None and depth > 0:
             return stored[1], stored[0], "saved"
 
-        child_moves = self.get_child_mouvs(board, player)
+        child_moves = self.get_child_mouvs(board, player, board_value)
         next_player = 1 if player == 2 else 2
         best_value = -float("inf")
         best_move = None
@@ -277,7 +203,7 @@ class AI:
             if  alpha >= beta or alpha == self.win_weight or beta == -self.win_weight :
                 self.tot += (len(child_moves) - index) * math.prod(range(len(board.can_play), len(board.can_play) - depth, -1))
                 self.prunning += (len(child_moves) - index) * math.prod(range(len(board.can_play), len(board.can_play) - depth, -1))
-                self.change_key(new_keys, f"{new_keys[-1]} : {"alpha" if player == 1 else "beta"}")
+                self.change_key(new_keys, f"{new_keys[-1]} : {'alpha' if player == 1 else 'beta'}")
                 break
 
         board_rating = alpha if player == 1 else beta
@@ -287,12 +213,13 @@ class AI:
 
         return board_rating , best_move, flag
 
-    def get_child_mouvs(self, board : Board, player : int) -> List[str]:
+    def get_child_mouvs(self, board : Board, player : int, board_value : int) -> List[str]:
         mouvs = board.forced_mouvs(player)
         if mouvs is None :
             mouvs = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
 
-        #mouvs = mouvs[:14]
+        mouvs.sort(key=lambda x : board.heuristic(board_value, x, player))
+        mouvs = mouvs[:14]
         return mouvs
 
     def add_to_tree(self, keys, value):
