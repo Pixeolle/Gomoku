@@ -130,7 +130,7 @@ class Board:
         move, line, column = self.clean_move(move)
 
         if move not in self.can_play :
-            raise ValueError(f"Position must be free")
+            raise ValueError(f"Position must be free : {move}")
 
         bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
         self.mask |= (1 << bit_offset)
@@ -250,17 +250,19 @@ class Board:
         key = (self.mask << self.height * self.width ) | position
         return key
 
+    @staticmethod
+    def select_k_by_offset_bit(bitboard : int, k : int, offset : int) -> int:
+        index = 1
+        result = bitboard & 1
+        while bitboard != 0 and index < k:
+            bitboard >>= offset
+            result |= ((bitboard & 1) << index)
+            index += 1
+
+        return result
+
     def forced_mouvs(self, player : int) -> Optional[List[str]]:
 
-        def select_k_by_offset_bit(bitboard : int, k : int, offset : int) -> int:
-            index = 1
-            result = bitboard & 1
-            while bitboard != 0 and index < k:
-                bitboard >>= offset
-                result |= ((bitboard & 1) << index)
-                index += 1
-
-            return result
 
         def check_k_row(bitboard : int, opponent_bit : int, k : int) -> Optional[List[str]]:
             if k == 5:
@@ -280,7 +282,6 @@ class Board:
 
 
                 if self.count_ones((bitboard >> bit_offset) & ones_mask) < ones_need:
-                    #print(f"{bit_offset} {(bitboard >> bit_offset) & ones_mask:0{(self.height + 1) * (k - 1)}b} Delete")
                     bit_offset += 1
                     continue
 
@@ -294,13 +295,11 @@ class Board:
                     elif offset == self.height + 1 and bit_offset // self.width > self.height - k and bit_offset % self.height > self.height - k:
                         continue
 
-                    selected_bit = select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
-                    select_opponent = select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
+                    selected_bit = Board.select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
+                    select_opponent = Board.select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
 
                     if select_opponent != 0:
                         continue
-
-                    #print(f"{bit_offset} {offset} {selected_bit:0{k}b} {select_opponent:0{k}b}")
 
                     if k == 5:
                         match selected_bit:
@@ -343,6 +342,33 @@ class Board:
         if check_3_opponent is not None:
             return check_3_opponent
         return None
+
+    def heuristic(self, value : int, move : str, player : int) -> int:
+
+        def heuristic_direction(bit_shift, offset : int, player_bits : int, opponent_bits : int) -> int:
+            for i in range(5):
+                player_bits >>= bit_shift - i * offset
+                opponent_bits >>= bit_shift - i * offset
+
+                player_selection = self.select_k_by_offset_bit(player_bits, 5, offset)
+                opponent_selection = self.select_k_by_offset_bit(opponent_bits, 5, offset)
+
+                
+
+
+            return 0
+
+
+        player_bits = self.position if player == 1 else self.position ^ self.mask
+        opponent_bits = self.position if player == 2 else self.position ^ self.mask
+        bit_shift = self.coordinate_to_bit(move)
+
+        offsets = [1, self.height, self.height - 1, self.height + 1]
+
+        for offset in offsets:
+            value += heuristic_direction(bit_shift, offset, player_bits, opponent_bits)
+
+        return value
 
     def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
 

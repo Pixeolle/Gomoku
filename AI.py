@@ -12,6 +12,7 @@ class AI:
         self.prunning = 0
         self.tot = 0
         self.tree = {}
+        self.iterative = 1
 
     def store_board(self, board : Board, move : str, value : int) -> None :
         self.transposition_table[board.key] = (move, value)
@@ -32,20 +33,24 @@ class AI:
         best_move = None
         best_value = None
         best_flag = None
-        depth = 1
+        depth = self.iterative
 
-        end = datetime.now() + timedelta(seconds=60)
+        end = datetime.now() + timedelta(seconds=4.9)
 
-        while datetime.now() < end :
-            value, move, flag = self.alphabeta_open(board, depth, player)
-            if best_value is None or value >= best_value:
-                best_move = move
-                best_value = value
-                best_flag = flag
+        try:
+            while datetime.now() < end and depth <= board.remaining_moves:
+                value, move, flag = self.negascout(board.copy(), depth, player, end, -float("inf"), float("inf"))
+                if move is not None:
+                    best_move = move
+                    best_value = value
+                    best_flag = flag
+                depth += 1
 
-            depth += 1
+        except TimeoutError:
+            pass
 
-        print(f"Depth = {depth}")
+        self.iterative = depth - 2
+        print(f"Depth = {self.iterative + 1}")
 
         return best_value, best_move, best_flag
 
@@ -124,14 +129,14 @@ class AI:
         return best_value, best_move, flag
 
 
-    def negamax(self, board: Board, depth: int, player: int, alpha: int = -float("inf"), beta: int = float("inf")) -> Tuple[int, Optional[str], str]:
+    def negamax(self, board: Board, depth: int, player: int, end_time : datetime, alpha: int = -float("inf"), beta: int = float("inf")) -> Tuple[int, Optional[str], str]:
 
         winner = board.is_winning
         if winner is not None:
             return winner * (self.win_weight + 1), None, "exact"
 
 
-        if depth == 0:
+        if depth == 0 or datetime.now() > end_time:
             return 0, None, "heuristic"
 
         child_moves = self.get_child_mouvs(board, player)
@@ -142,7 +147,7 @@ class AI:
 
         for child_move in child_moves:
             board.play_to(player, child_move)
-            value, _, child_flag = self.negamax(board, depth - 1, next_player, -beta, -alpha)
+            value, _, child_flag = self.negamax(board, depth - 1, next_player, end_time, -beta, -alpha)
             value = -value
             board.undo_to(child_move)
 
@@ -157,6 +162,62 @@ class AI:
 
             if alpha >= beta or alpha == self.win_weight or beta == -self.win_weight:
                 break
+
+        return best_value, best_move, flag
+
+    def negascout(self, board: Board, depth: int, player: int, end_time: datetime, alpha: float, beta: float) -> Tuple[int, Optional[str], str]:
+        if datetime.now() > end_time:
+            raise TimeoutError()
+
+        winner = board.is_winning
+        if winner is not None:
+            return winner * (self.win_weight + 1), None, "exact"
+
+        if depth == 0:
+            return 0, None, "heuristic"
+
+        stored = self.get_board(board)
+        if stored is not None and depth > 0:
+            return stored[1], stored[0], "saved"
+
+        child_moves = self.get_child_mouvs(board, player)
+        next_player = 1 if player == 2 else 2
+        best_value = -float("inf")
+        best_move = None
+        flag = "exact"
+        n = beta
+
+        for i, child_move in enumerate(child_moves):
+            board.play_to(player, child_move)
+
+            if i == 0:
+                value, _, child_flag = self.negascout(board, depth - 1, next_player, end_time, -beta, -alpha)
+                value = -value
+            else:
+                value, _, child_flag = self.negascout(board, depth - 1, next_player, end_time, -n, -alpha)
+                value = -value
+
+                if alpha < value < beta:
+                    value, _, child_flag = self.negascout(board, depth - 1, next_player, end_time, -beta, -value)
+                    value = -value
+
+            board.undo_to(child_move)
+
+            value += 1 if value < 0 else -1 if value > 0 else 0
+
+            if value > best_value:
+                best_value = value
+                best_move = child_move
+                flag = child_flag
+
+            alpha = max(alpha, value)
+            if alpha >= beta:
+                break
+
+            n = alpha + 1
+
+        if flag == "exact":
+            self.store_board(board, best_move, best_value)
 
         return best_value, best_move, flag
 
@@ -231,7 +292,7 @@ class AI:
         if mouvs is None :
             mouvs = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
 
-        mouvs = mouvs[:14]
+        #mouvs = mouvs[:14]
         return mouvs
 
     def add_to_tree(self, keys, value):

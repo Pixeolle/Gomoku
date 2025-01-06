@@ -133,9 +133,9 @@ def against_ai():
             ai.prunning = 0
             ai.tot = 0
             start_former = datetime.now()
-            move_former = ai.negamax(board, 4, player)
+            move_former = ai.search(board, player)
             time_former = datetime.now() - start_former
-            winsound.Beep(440, 300)
+            #winsound.Beep(440, 300)
             #print(f"Coups : {ai.prunning} soit {ai.prunning / ai.tot}")
             print(f"Value : {move_former[0]} | Move : {move_former[1]} | Flag : {move_former[2]} | Time : {time_former} ")
             board.play_to(player, move_former[1])
