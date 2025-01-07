@@ -29,7 +29,7 @@ class AI:
                 return stored_value
         return None
 
-    def search(self, board : Board, player : int, value_board : int) -> Tuple[int, Optional[str], str]:
+    def search(self, board : Board, player : int, value_board : int) -> Tuple[float, Optional[str], str]:
         best_move = None
         best_value = None
         best_flag = None
@@ -106,7 +106,7 @@ class AI:
         if stored is not None and depth > 0:
             return stored[1], stored[0], "saved"
 
-        child_moves = self.get_child_mouvs(board, player, board_value)
+        child_moves = self.get_child_mouvs(board, player, 0)
         next_player = 1 if player == 2 else 2
         best_value = -float("inf")
         best_move = None
@@ -168,7 +168,7 @@ class AI:
             self.tot += 1
             return 0, None, "heuristic"
 
-        child_moves = self.get_child_mouvs(board, player)
+        child_moves = self.get_child_mouvs(board, player, 0)
         next_player = 1 if player == 2 else 2
         best_move = None
         flag = ""
@@ -219,14 +219,12 @@ class AI:
             return mouvs
 
         mouvs = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
-        mouvs_h = [(mouv,board.heuristic(board_value, mouv, player)) for mouv in mouvs]
         mouvs.sort(key=lambda x : board.heuristic(board_value, x, player), reverse= (player == 1))
 
         if display :
-            print(mouvs_h)
-            """for mouvement in mouvs:
+            for mouvement in mouvs:
                 print(f"{mouvement} : {board.heuristic(board_value, mouvement, player)} | ", end="")
-            print()"""
+            print()
 
         if len(mouvs) > 10:
             mouvs = mouvs[:10]

@@ -343,7 +343,7 @@ class Board:
             return check_3_opponent
         return None
 
-    def heuristic(self, value : int, move : str, player : int) -> int:
+    def heuristic(self, value : int, move : str, player : int, display = False) -> int:
 
         def heuristic_direction(bit_shift, offset : int, player_bits : int, opponent_bits : int) -> int:
 
@@ -373,23 +373,34 @@ class Board:
                         if player_stone > attack_max:
                             attack_max = player_stone
 
+            if attack_max > 1 and display :
+                print("Alignement trouvé")
+
             for i in range(attack_max, 1, -1):
                 attack_sum += weight.get(i, 0)
 
             tot_sum = attack_sum - defense_sum if player == 1 else defense_sum - attack_sum
             return tot_sum
 
+        value_direction = 0
 
         player_bits = self.position if player == 1 else self.position ^ self.mask
         opponent_bits = self.position if player == 2 else self.position ^ self.mask
         bit_shift = self.coordinate_to_bit(move)
 
+        player_bits |= (1 << bit_shift)
+
+        if display :
+            print(f"Move : {move}")
+
         offsets = [1, self.height, self.height - 1, self.height + 1]
 
         for offset in offsets:
-            value += heuristic_direction(bit_shift, offset, player_bits, opponent_bits)
+            value_direction += heuristic_direction(bit_shift, offset, player_bits, opponent_bits)
 
-        return value
+        if display :
+            print(f"Value to add : {value_direction} \n")
+        return value + value_direction
 
 
     def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
