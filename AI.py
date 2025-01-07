@@ -35,7 +35,7 @@ class AI:
         best_flag = None
         depth = self.iterative
 
-        end = datetime.now() + timedelta(seconds=60)
+        end = datetime.now() + timedelta(seconds=5)
 
         try:
             while datetime.now() < end and depth <= board.remaining_moves:
@@ -63,12 +63,12 @@ class AI:
 
 
         if depth == 0 or datetime.now() > end_time:
-            return value_board / 10000, None, "heuristic"
+            return value_board / 100000, None, "heuristic"
 
         child_moves = self.get_child_mouvs(board, player, value_board)
         next_player = 1 if player == 2 else 2
         best_value = -float("inf")
-        best_move = None
+        best_move = child_moves[0]
         flag = "exact"
 
         for child_move in child_moves:
@@ -213,13 +213,23 @@ class AI:
 
         return board_rating , best_move, flag
 
-    def get_child_mouvs(self, board : Board, player : int, board_value : int) -> List[str]:
+    def get_child_mouvs(self, board : Board, player : int, board_value : int, display = False) -> List[str]:
         mouvs = board.forced_mouvs(player)
-        if mouvs is None :
-            mouvs = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
+        if mouvs is not None :
+            return mouvs
 
-        mouvs.sort(key=lambda x : board.heuristic(board_value, x, player))
-        mouvs = mouvs[:14]
+        mouvs = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
+        mouvs_h = [(mouv,board.heuristic(board_value, mouv, player)) for mouv in mouvs]
+        mouvs.sort(key=lambda x : board.heuristic(board_value, x, player), reverse= (player == 1))
+
+        if display :
+            print(mouvs_h)
+            """for mouvement in mouvs:
+                print(f"{mouvement} : {board.heuristic(board_value, mouvement, player)} | ", end="")
+            print()"""
+
+        if len(mouvs) > 10:
+            mouvs = mouvs[:10]
         return mouvs
 
     def add_to_tree(self, keys, value):

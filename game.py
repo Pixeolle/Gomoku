@@ -46,7 +46,7 @@ def generate_board_id():
 
         print(board)
         start = datetime.now()
-        value_board = board.heuristic(value_board, input_player, player)
+        value_board = board.heuristic(value_board, input_player, 1 if player == 2 else 2)
         print(f"Temps : {datetime.now() - start}")
         print(f"Value Board : {value_board}")
         a = board.forced_mouvs(player)
@@ -139,8 +139,9 @@ def against_ai():
             value_board = board.heuristic(value_board, input_player, player)
 
 
-        print(board)
+        print(f"{board}")
         player = 1 if player == 2 else 2
+        ai.get_child_mouvs(board, player, value_board, True)
 
 
     return board.position, board.mask
@@ -224,9 +225,9 @@ def test_forced_move():
     average_time = total_time / n
     print(f"Average execution time over {n} runs: {average_time}")
 
-generate_board_id()
+#generate_board_id()
 #test_forced_move()
-#against_ai()
+against_ai()
 
 
 
