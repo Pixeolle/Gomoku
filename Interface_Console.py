@@ -123,7 +123,7 @@ class GomokuGame:
         print(f"Mode: {game_mode} ({self.game_mode.upper()})")
         print(f"Tour du Joueur {current_player} ({'X' if current_player == 1 else 'O'})")
         if game_mode == "Joueur contre IA" and current_player == 2:
-            print("Tour de l'IA...")
+            print("Tour de l'IA....")
         print(self.board)
 
     def play_pvp(self):
