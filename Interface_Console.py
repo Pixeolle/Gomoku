@@ -65,7 +65,13 @@ class GomokuGame:
                 return int(choice)
             elif choice == "3":
                 first = random.randint(1, 2)
-                print(f"\nLe {'joueur' if (vs_ai and first == 1) else 'l\'IA' if (vs_ai and first == 2) else f'joueur {first}'} commence!")
+                if vs_ai:
+                    if first == 1:
+                        print("\nLe joueur commence!")
+                    else:
+                        print("\nL'IA commence!")
+                else:
+                    print(f"\nLe joueur {first} commence!")
                 input("\nAppuyez sur Entrée pour continuer...")
                 return first
             else:
