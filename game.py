@@ -27,6 +27,8 @@ check_defense = (5192376087906286159226792757428224, 510431338905924868895035403
 def generate_board_id():
 
     board = Board()
+    board.position = 5192455329366965992581233513594880
+    board.mask = 36346553393226136395067175341129728
     value_board = 0
     print(board)
     player = 1
@@ -49,8 +51,19 @@ def generate_board_id():
         value_board = board.heuristic(value_board, input_player, 1 if player == 2 else 2)
         print(f"Temps : {datetime.now() - start}")
         print(f"Value Board : {value_board}")
-        a = board.forced_mouvs(player)
-        print(f"{a}")
+        print(f"Position : {board.position}")
+        print(f"Mask : {board.mask}")
+        start = datetime.now()
+        for _ in range(100):
+            a = board.forced_moves(player)
+        print(f"v1 : {datetime.now() - start}")
+        start = datetime.now()
+        for _ in range(100):
+            b = board.forced_moves_fix(player)
+        print(f"v2 : {datetime.now() - start}")
+        print(f"Valid : {a == b}")
+        print(f"a : {a}")
+        print(f"b : {b}")
 
 
     print(f"Winner = {board.is_winning}")
@@ -210,20 +223,37 @@ def split_string(s):
     return ''
 
 def test_forced_move():
-    board = Board()
-    board.position = 45718620351076546948843949308563138826916069376
-    board.mask = 1712841491893727920171248923237171650074924548096
-    board.key = 92356230541475279300523438875616598032420803406933750624156058529001659443532863658820304698955891410492072392654848
-    n = 1
-    total_time = timedelta()
-    for _ in range(n):
-        start_time = datetime.now()
-        a = board.forced_mouvs(2)
-        print(f"{a}")
-        end_time = datetime.now()
-        total_time += end_time - start_time
-    average_time = total_time / n
-    print(f"Average execution time over {n} runs: {average_time}")
+
+    directions = [1, 15, 14, 16]
+    patern = 0b011010
+    patern_length = 6
+
+    for direction in directions:
+        x, y = 0, 0
+        if direction == 1:
+            x = -1
+        elif direction == 15:
+            y = -1
+        elif direction == 14:
+            x, y = 1, -1
+        elif direction == 16:
+            x, y = -1, -1
+
+        for bit in range(225):
+            line = 15 - bit % 15 - 1
+            column =  15 - bit // 15 - 1
+            if 15 > line + x * (patern_length - 1) >= 0 and 15 > column + y * (patern_length - 1) >= 0:
+                board = Board()
+                apply_patern = 0
+                for i in range(patern_length):
+                    if (patern >> i) & 1 == 1:
+                        apply_patern |= (1 << i * direction + bit)
+
+                board.position |= apply_patern
+                board.mask |= apply_patern
+                #print(board)
+                a = board.forced_mouvs(1)
+                print(a)
 
 #generate_board_id()
 #test_forced_move()
@@ -247,3 +277,5 @@ against_ai()
                 nav_tree(ai)
                 print(board)
         """
+
+# Sequence creant un None : H7 H8 G7 G8 F8 J8 I8 I9 F5 J9 F7 F6 E7 -> None

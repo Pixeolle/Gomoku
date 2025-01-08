@@ -28,7 +28,23 @@ class Board:
             height + 1 : Board.bit_builder(self.height - 4, 4, self.width - 4)
         }
 
-        self.key = (self.mask << self.height * self.width ) | self.position #changer pour representer le plateau sous base ternaire
+        self.mask_one = {
+            5 : {
+                1 : Board.bit_builder(5),
+                self.height : Board.bit_builder(1, self.height - 1, 5),
+                self.height - 1 : Board.bit_builder(1, self.height - 2, 5),
+                self.height + 1 : Board.bit_builder(1, self.height , 5)
+            },
+
+            6 : {
+                1 : Board.bit_builder(6),
+                self.height : Board.bit_builder(1, self.height - 1, 6),
+                self.height - 1 : Board.bit_builder(1, self.height - 2, 6),
+                self.height + 1 : Board.bit_builder(1, self.height , 6)
+            }
+        }
+
+        self.key = (self.mask << self.height * self.width ) | self.position
 
     def __str__(self) -> str:
         number_to_object = {0: "\033[91mX\033[0m", 1: "\033[94mO\033[0m"}
@@ -113,9 +129,9 @@ class Board:
         free_position = [self.bit_to_coordinate(bit) for bit in range(self.height * self.width) if (self.mask >> bit) & 1 == 0]
         return free_position
 
-    def bit_to_coordinate(self, bit : int) -> str:
+    def bit_to_coordinate(self, bit : int, bit_offset = -1) -> str:
         if bit >= self.height * self.width:
-            raise ValueError(f"Bit should be between 0 and {self.height * self.width - 1}")
+            raise ValueError(f"Bit should be between 0 and {self.height * self.width - 1} : {bit} : {bit_offset}")
         return chr(ord("A") + self.height - bit % self.height - 1) + str(self.width - bit // self.width - 1)
 
     def coordinate_to_bit(self, move : str) -> int:
@@ -261,8 +277,7 @@ class Board:
 
         return result
 
-    def forced_mouvs(self, player : int) -> Optional[List[str]]:
-
+    def forced_moves(self, player : int) -> Optional[List[str]]:
 
         def check_k_row(bitboard : int, opponent_bit : int, k : int) -> Optional[List[str]]:
             if k == 5:
@@ -280,19 +295,19 @@ class Board:
             ones_mask = (1 << (self.height + 1) * (k - 1) + 1) - 1
             while bit_offset < self.height * self.height and self.count_ones((bitboard >> bit_offset)) >= ones_need: # Ajouter une contrainte pour éviter les zones vides avant la zone interessante
 
-
                 if self.count_ones((bitboard >> bit_offset) & ones_mask) < ones_need:
                     bit_offset += 1
                     continue
 
                 for offset in offsets:
+
                     if offset == 1 and bit_offset % self.height > self.height - k:
                         continue
                     elif offset == self.height and bit_offset // self.width > self.height - k:
                         continue
-                    elif offset == self.height - 1 and bit_offset // self.width > self.height - k and bit_offset % self.height < k:
+                    elif offset == self.height - 1 and (bit_offset // self.height > self.width - k or bit_offset % self.height < k - 1):
                         continue
-                    elif offset == self.height + 1 and bit_offset // self.width > self.height - k and bit_offset % self.height > self.height - k:
+                    elif offset == self.height + 1 and (bit_offset // self.height > self.width - k or bit_offset % self.height > self.height - k):
                         continue
 
                     selected_bit = Board.select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
@@ -318,9 +333,9 @@ class Board:
                             case 0b001110:
                                 return [self.bit_to_coordinate(bit_offset + 4 * offset), self.bit_to_coordinate(bit_offset)]
                             case 0b010110:
-                                return [self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
+                                return [self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)]
                             case 0b011010:
-                                return [self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
+                                return [self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)]
                             case 0b011100:
                                 return [self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
 
@@ -343,6 +358,94 @@ class Board:
             return check_3_opponent
         return None
 
+    def forced_moves_fix(self, player : int) -> Optional[List[str]]:
+
+        def valid_bit_by_offset(bit_offset : int, offset : int, k : int):
+            if offset == 1 and bit_offset % self.height > self.height - k:
+                return True
+            elif offset == self.height and bit_offset // self.width > self.height - k:
+                return True
+            elif offset == self.height - 1 and (bit_offset // self.height > self.width - k or bit_offset % self.height < k - 1):
+                return True
+            elif offset == self.height + 1 and (bit_offset // self.height > self.width - k or bit_offset % self.height > self.height - k):
+                return True
+            return False
+
+        def check_k_row(bitboard : int, opponent_bit : int, k : int) -> Optional[List[str]]:
+            if k == 5:
+                ones_need = 4
+            elif k == 6:
+                ones_need = 3
+            else:
+                raise ValueError (f"k must be 5 or 6 : {k}")
+
+            if self.count_ones(bitboard) < ones_need:
+                return
+
+            offsets = [1, self.height, self.height - 1, self.height + 1]
+
+            for offset in offsets:
+
+                 bit_offset = 0
+
+                 while bit_offset < self.height * self.height and self.count_ones((bitboard >> bit_offset)) >= ones_need:
+                     if self.count_ones((bitboard >> bit_offset) & self.mask_one[k][offset]) < ones_need or valid_bit_by_offset(bit_offset, offset, k):
+                        bit_offset += 1
+                        continue
+
+                     selected_bit = Board.select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
+                     select_opponent = Board.select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
+
+                     if select_opponent != 0:
+                         bit_offset += 1
+                         continue
+
+                     if k == 5:
+                         match selected_bit:
+                             case 0b01111:
+                                 return [self.bit_to_coordinate(bit_offset + 4 * offset)]
+                             case 0b10111:
+                                 return [self.bit_to_coordinate(bit_offset + 3 * offset)]
+                             case 0b11011:
+                                 return [self.bit_to_coordinate(bit_offset + 2 * offset)]
+                             case 0b11101:
+                                 return [self.bit_to_coordinate(bit_offset + 1 * offset)]
+                             case 0b11110:
+                                 return [self.bit_to_coordinate(bit_offset)]
+                     elif k == 6:
+                         match selected_bit:
+                             case 0b001110:
+                                 return [self.bit_to_coordinate(bit_offset + 4 * offset), self.bit_to_coordinate(bit_offset)]
+                             case 0b010110:
+                                 return [self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)]
+                             case 0b011010:
+                                 return [self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)]
+                             case 0b011100:
+                                 return [self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 5 * offset)]
+
+                     bit_offset += 1
+
+        player_board = self.position if player == 1 else self.position ^ self.mask
+        opponent_board = self.position if player == 2 else self.position ^ self.mask
+
+        check_4_player = check_k_row(player_board, opponent_board, 5)
+        if check_4_player is not None:
+            return check_4_player
+
+        check_4_opponent = check_k_row(opponent_board, player_board, 5)
+        if check_4_opponent is not None:
+            return check_4_opponent
+
+        check_3_player = check_k_row(player_board, opponent_board, 6)
+        if check_3_player is not None:
+            return check_3_player
+
+        check_3_opponent = check_k_row(opponent_board, player_board,6)
+        if check_3_opponent is not None:
+            return check_3_opponent
+        return None
+
+
     def heuristic(self, value : int, move : str, player : int, display = False) -> int:
 
         def heuristic_direction(bit_shift, offset : int, player_bits : int, opponent_bits : int) -> int:
@@ -355,7 +458,7 @@ class Board:
             weight = {
                 2 : 10,
                 3 : 100,
-                4 : 1000,
+                4 : 150,
                 5 : 10000
             }
 
@@ -401,7 +504,6 @@ class Board:
         if display :
             print(f"Value to add : {value_direction} \n")
         return value + value_direction
-
 
     def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
 
@@ -452,3 +554,89 @@ class Board:
                 mask |= (1 << self.coordinate_to_bit(position))
 
         return all_k_near
+
+    def get_distance(self) -> str:
+        number_to_object = {0: "\033[91mX\033[0m", 1: "\033[94mO\033[0m"}
+        distance_to_object = {
+            1: "\033[91m1\033[0m",  # Red
+            2: "\033[93m2\033[0m",  # Yellow
+            3: "\033[92m3\033[0m",  # Green
+            4: "\033[96m4\033[0m",  # Cyan
+            5: "\033[94m5\033[0m",  # Blue
+            6: "\033[95m6\033[0m",  # Magenta
+            7: "\033[97m7\033[0m"   # White
+        }
+        distances = self.find_1_to_k_near_position()
+        str_to_print : str = ""
+
+        for line in range(self.height):
+            str_to_print += "   "
+            str_to_print += "+"
+            for column in range(self.width):
+                str_to_print += "---+"
+            str_to_print += f"\n {chr(ord('A') + line)} "
+
+            for column in range(self.width):
+                bit_mask = self.get_left(self.mask, self.height * column + line)
+                if bit_mask == 0:
+                    bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
+                    move = self.bit_to_coordinate(bit_offset)
+                    rank = - 1
+                    for index, k_distance in enumerate(distances, 1):
+                        if move in k_distance:
+                            rank = index
+                            break
+
+                    str_to_print += f"| {distance_to_object.get(rank, 7)} "
+                else:
+                    bit_position = self.get_left(self.position, self.height * column + line)
+                    str_to_print += f"| {number_to_object[bit_position]} "
+            str_to_print += "|\n"
+
+        str_to_print += "   "
+        str_to_print += "+"
+        for column in range(self.width):
+            str_to_print += "---+"
+        str_to_print += "\n"
+        str_to_print += "    "
+        for column in range(self.width):
+            str_to_print += f" {column:<2} "
+        str_to_print += "\n"
+
+        return str_to_print
+
+    def get_test(self):
+        k = 6
+
+        str_to_print = ""
+        for line in range(self.height):
+            str_to_print += "   "
+            str_to_print += "+"
+            for column in range(self.width):
+                str_to_print += "---+"
+            str_to_print += f"\n {chr(ord('A') + line)} "
+
+            for column in range(self.width):
+                bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
+
+                #str_to_print += f"| {bit_offset} "
+
+                if bit_offset % self.height > self.height - k:
+                    str_to_print += f"| \033[91mX\033[0m "
+                else:
+                    str_to_print += f"|   "
+
+
+            str_to_print += "|\n"
+
+        str_to_print += "   "
+        str_to_print += "+"
+        for column in range(self.width):
+            str_to_print += "---+"
+        str_to_print += "\n"
+        str_to_print += "    "
+        for column in range(self.width):
+            str_to_print += f" {column:<2} "
+        str_to_print += "\n"
+
+        return str_to_print

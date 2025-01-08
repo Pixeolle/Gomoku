@@ -1,8 +1,8 @@
-import datetime
-import math
 from datetime import datetime, timedelta
-from typing import *
+from joblib import Parallel, delayed
 from board import Board
+from typing import *
+import math
 
 class AI:
 
@@ -34,11 +34,12 @@ class AI:
         best_value = None
         best_flag = None
         depth = self.iterative
+        remaining_moves = board.remaining_moves
 
         end = datetime.now() + timedelta(seconds=5)
 
         try:
-            while datetime.now() < end and depth <= board.remaining_moves:
+            while datetime.now() < end and depth <= remaining_moves:
                 value, move, flag = self.negamax(board.copy(), depth, player, end, value_board)
                 if move is not None:
                     best_move = move
@@ -49,7 +50,8 @@ class AI:
         except TimeoutError:
             pass
 
-        self.iterative = depth - 2
+        if depth - 1 < remaining_moves - 2: # Si on a atteint la fin on ne depasse pas le nombre de coup maximal car le prochain coup n'entrera pas dans la boucle while
+            self.iterative = depth - 1
         print(f"Depth = {self.iterative + 1}")
 
         return best_value, best_move, best_flag
@@ -66,6 +68,7 @@ class AI:
             return value_board / 100000, None, "heuristic"
 
         child_moves = self.get_child_mouvs(board, player, value_board)
+        depth -= 1 if len(child_moves) > 3 else 0
         next_player = 1 if player == 2 else 2
         best_value = -float("inf")
         best_move = child_moves[0]
@@ -73,7 +76,7 @@ class AI:
 
         for child_move in child_moves:
             board.play_to(player, child_move)
-            value, _, child_flag = self.negamax(board, depth - 1, next_player, end_time, value_board, -beta, -alpha)
+            value, _, child_flag = self.negamax(board, depth, next_player, end_time, value_board, -beta, -alpha)
             value = -value
             board.undo_to(child_move)
 
@@ -147,6 +150,61 @@ class AI:
 
         return best_value, best_move, flag
 
+
+    def negamax_pool(self, board: Board, depth: int, player: int, end_time: datetime, value_board: int,
+                alpha: int = -float("inf"), beta: int = float("inf")) -> Tuple[float, Optional[str], str]:
+
+        winner = board.is_winning
+        if winner is not None:
+            return winner * (self.win_weight + 1), None, "exact"
+
+        if depth == 0 or datetime.now() > end_time:
+            return value_board / 100000, None, "heuristic"
+
+        child_moves = self.get_child_mouvs(board, player, value_board)
+        depth -= 1 if len(child_moves) > 3 else 0
+        next_player = 1 if player == 2 else 2
+        best_value = -float("inf")
+        best_move = child_moves[0]
+        flag = "exact"
+
+        # Évaluation parallèle des coups
+        results = Parallel(n_jobs=2)(
+            delayed(self.negamax)(
+                board.copy(),  # Une copie pour chaque processus
+                depth,
+                next_player,
+                end_time,
+                value_board,
+                -beta,
+                -alpha
+            ) for child_move in child_moves[:2]  # Évalue les 2 premiers coups en parallèle
+        )
+
+        # Évaluation séquentielle des coups restants
+        for i, child_move in enumerate(child_moves):
+            if i < 2:  # Utilise les résultats déjà calculés en parallèle
+                value, _, child_flag = results[i]
+                value = -value
+            else:  # Calcule les coups restants normalement
+                board.play_to(player, child_move)
+                value, _, child_flag = self.negamax_pool(board, depth, next_player, end_time, value_board, -beta, -alpha)
+                value = -value
+                board.undo_to(child_move)
+
+            value += 1 if value < 0 else -1 if value > 0 else 0
+
+            if value > best_value:
+                best_value = value
+                best_move = child_move
+                flag = child_flag
+
+            alpha = max(alpha, best_value)
+            if alpha >= beta or alpha == self.win_weight or beta == -self.win_weight:
+                break
+
+        return best_value, best_move, flag
+
     def alphabeta_open(self, board : Board, depth : int, player : int, alpha : int = -float("inf"), beta : int = float("inf"), keys : List[str] = None) -> Tuple[int, Optional[str], str]:
 
         if keys is None:
@@ -214,21 +272,23 @@ class AI:
         return board_rating , best_move, flag
 
     def get_child_mouvs(self, board : Board, player : int, board_value : int, display = False) -> List[str]:
-        mouvs = board.forced_mouvs(player)
-        if mouvs is not None :
-            return mouvs
+        moves = board.forced_moves(player)
+        if moves is not None :
+            return moves
 
-        mouvs = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
-        mouvs.sort(key=lambda x : board.heuristic(board_value, x, player), reverse= (player == 1))
+        moves = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
+        moves.sort(key=lambda x : board.heuristic(board_value, x, player), reverse= (player == 1))
 
         if display :
-            for mouvement in mouvs:
+            print(f"Value : {board_value} |", end="")
+            for mouvement in moves:
                 print(f"{mouvement} : {board.heuristic(board_value, mouvement, player)} | ", end="")
             print()
 
-        if len(mouvs) > 10:
-            mouvs = mouvs[:10]
-        return mouvs
+        if len(moves) > 10:
+            moves = moves[:10]
+
+        return moves
 
     def add_to_tree(self, keys, value):
         tree = self.tree
