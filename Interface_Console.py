@@ -6,11 +6,17 @@ from pyfiglet import Figlet
 from board import Board
 from AI import AI
 
+#Liste des derniers coups joués par les joueurs
+
 class GomokuGame:
     def __init__(self):
         self.board = Board()
         self.ai = AI(self.board)
         self.game_mode = "normal"
+        self.style_x = "\033[91mX\033[0m"
+        self.style_o = "\033[94mO\033[0m"
+        self.move_player_1 = []
+        self.move_player_2 = []
 
     def clear(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -54,8 +60,8 @@ class GomokuGame:
             print("1. Joueur")
             print("2. IA")
         else:
-            print("1. Joueur 1 (X)")
-            print("2. Joueur 2 (O)")
+            print(f"1. Joueur 1 ({self.style_o})")
+            print(f"2. Joueur 2 ({self.style_x})")
         print("3. Aléatoire")
         print("═" * 50)
 
@@ -85,8 +91,8 @@ class GomokuGame:
         • Le jeu se joue sur un plateau de 15x15
         • Les joueurs placent leurs pions à tour de rôle
         • Le but est d'aligner 5 pions de sa couleur de n'importe quelle manière
-        • Le premier joueur utilise les X 
-        • Le second joueur utilise les O 
+        • Le premier joueur utilise les "\033[94mO\033[0m"
+        • Le second joueur utilise les "\033[91mX\033[0m"
         
         Comment jouer ?
         • Entrez les coordonnées sous la forme 'A0' par exemple.
@@ -113,7 +119,11 @@ class GomokuGame:
     def get_player_move(self, player: int) -> str:
         while True:
             try:
-                move = input(f"\nJoueur {player} ({('X' if player == 1 else 'O')}), entrez votre coup (ex: H7): ")
+                if player == 1:
+                    player_symbol = self.style_o
+                else:
+                    player_symbol = self.style_x
+                move = input(f"\nJoueur {player} ({player_symbol}), entrez votre coup : ")
                 if move.lower() == 'quit':
                     return move
                 self.board.clean_move(move)
@@ -127,7 +137,11 @@ class GomokuGame:
     def display_game_state(self, current_player: int, game_mode: str):
         self.clear()
         print(f"Mode: {game_mode} ({self.game_mode.upper()})")
-        print(f"Tour du Joueur {current_player} ({'X' if current_player == 1 else 'O'})")
+        if current_player == 1:
+            player_symbol = self.style_o
+        else:
+            player_symbol = self.style_x
+        print(f"Tour du Joueur {current_player} ({player_symbol})")
         if game_mode == "Joueur contre IA" and current_player == 2:
             print("Tour de l'IA....")
         print(self.board)
@@ -151,7 +165,11 @@ class GomokuGame:
                 if winner == 0:
                     print("\n═══ Match nul! ═══")
                 else:
-                    print(f"\n═══ Le Joueur {current_player} ({('X' if current_player == 1 else 'O')}) a gagné! ═══")
+                    if current_player == 1:
+                        player_symbol = self.style_o
+                    else:
+                        player_symbol = self.style_x
+                    print(f"\n═══ Le Joueur {current_player} ({player_symbol}) a gagné! ═══")
                 input("\nAppuyez sur Entrée pour revenir au menu...")
                 break
 
@@ -215,7 +233,7 @@ class GomokuGame:
                     self.display_rules()
                 case "4":
                     self.clear()
-                    print("\nMerci d'avoir joué au Gomoku! Au revoir!\n")
+                    print("\nMerci d'avoir joué au Gomoku!\n")
                     break
                 case _:
                     print("\nChoix invalide! Veuillez choisir une option entre 1 et 4.")
