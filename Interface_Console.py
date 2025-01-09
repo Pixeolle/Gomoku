@@ -1,4 +1,5 @@
 import os
+import sys
 import random
 from typing import Tuple, Optional
 from datetime import datetime
@@ -19,7 +20,7 @@ class GomokuGame:
         self.move_player_2 = []
 
     def clear(self):
-        os.system('cls' if os.name == 'nt' else 'clear')
+        os.system('cls')
 
     def display_title(self):
         print(Figlet(font='slant').renderText('Gomoku'))
@@ -126,8 +127,7 @@ class GomokuGame:
                 move = input(f"\nJoueur {player} ({player_symbol}), entrez votre coup : ")
                 if move.lower() == 'quit':
                     return move
-                self.board.clean_move(move)
-                if move not in self.board.can_play:
+                if move.upper() not in self.board.can_play:
                     print("Cette case est déjà prise!")
                     continue
                 return move
