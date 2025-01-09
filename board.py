@@ -358,7 +358,7 @@ class Board:
             return check_3_opponent
         return None
 
-    def forced_moves_fix(self, player : int) -> Optional[List[str]]:
+    def forced_moves_fix(self, player : int, move : str) -> Optional[List[str]]:
 
         def valid_bit_by_offset(bit_offset : int, offset : int, k : int):
             if offset == 1 and bit_offset % self.height > self.height - k:
@@ -371,7 +371,7 @@ class Board:
                 return True
             return False
 
-        def check_k_row(bitboard : int, opponent_bit : int, k : int) -> Optional[List[str]]:
+        def check_k_row(bitboard : int, opponent_bit : int, line_move : int, column_move, k : int) -> Optional[List[str]]:
             if k == 5:
                 ones_need = 4
             elif k == 6:
@@ -383,10 +383,12 @@ class Board:
                 return
 
             offsets = [1, self.height, self.height - 1, self.height + 1]
+            bit_offset_start = self.height - (line_move - k + 1) - 1 + (self.width - (column_move - k + 1) - 1) * self.height
+            bit_offset_end = self.height - (line_move + k - 1) - 1 + (self.width - (column_move + k - 1) - 1) * self.height
 
             for offset in offsets:
 
-                 bit_offset = 0
+                 bit_offset = bit_offset_start
 
                  while bit_offset < self.height * self.height and self.count_ones((bitboard >> bit_offset)) >= ones_need:
                      if self.count_ones((bitboard >> bit_offset) & self.mask_one[k][offset]) < ones_need or valid_bit_by_offset(bit_offset, offset, k):
@@ -428,19 +430,19 @@ class Board:
         player_board = self.position if player == 1 else self.position ^ self.mask
         opponent_board = self.position if player == 2 else self.position ^ self.mask
 
-        check_4_player = check_k_row(player_board, opponent_board, 5)
+        check_4_player = check_k_row(player_board, opponent_board, move, 5)
         if check_4_player is not None:
             return check_4_player
 
-        check_4_opponent = check_k_row(opponent_board, player_board, 5)
+        check_4_opponent = check_k_row(opponent_board, player_board, move, 5)
         if check_4_opponent is not None:
             return check_4_opponent
 
-        check_3_player = check_k_row(player_board, opponent_board, 6)
+        check_3_player = check_k_row(player_board, opponent_board, move, 6)
         if check_3_player is not None:
             return check_3_player
 
-        check_3_opponent = check_k_row(opponent_board, player_board,6)
+        check_3_opponent = check_k_row(opponent_board, player_board, move, 6)
         if check_3_opponent is not None:
             return check_3_opponent
         return None
@@ -606,7 +608,18 @@ class Board:
         return str_to_print
 
     def get_test(self):
-        k = 6
+        k = 5
+        _, line_move, column_move = self.clean_move("h7")
+        top = min(line_move + (k - 1) ,self.height)
+        left = min(column_move + (k - 1) ,self.width)
+        bottom = max(line_move - (k - 1) ,0)
+        right = max(column_move - (k - 1) ,0)
+        bit_offset_start = 10 #max(self.height - (line_move + (k - 1)) - 1 + (self.width - (column_move + (k - 1)) - 1) * self.height, 0)
+        bit_offset_end = 225 #min(self.height - (line_move - (k - 1)) - 1 + (self.width - (column_move - (k - 1)) - 1) * self.height, self.height * self.width)
+
+
+        print(f"{right} -> {left} ")
+        print(f"{bottom} -> {top} ")
 
         str_to_print = ""
         for line in range(self.height):
@@ -620,8 +633,9 @@ class Board:
                 bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
 
                 #str_to_print += f"| {bit_offset} "
-
-                if bit_offset % self.height > self.height - k:
+                if column == column_move and line_move == line :
+                    str_to_print += f"| \033[94mO\033[0m "
+                elif left >= bit_offset // self.height >= right and  top >= bit_offset % self.height >= bottom : # rajouter la verification en fonction de la direction
                     str_to_print += f"| \033[91mX\033[0m "
                 else:
                     str_to_print += f"|   "
