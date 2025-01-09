@@ -1,5 +1,4 @@
 import os
-import sys
 import random
 from typing import Tuple, Optional
 from datetime import datetime
@@ -16,11 +15,10 @@ class GomokuGame:
         self.game_mode = "normal"
         self.style_x = "\033[91mX\033[0m"
         self.style_o = "\033[94mO\033[0m"
-        self.move_player_1 = []
-        self.move_player_2 = []
+        self.moves_history = []
 
     def clear(self):
-        os.system('cls')
+        os.system('cls' if os.name == 'nt' else 'clear')
 
     def display_title(self):
         print(Figlet(font='slant').renderText('Gomoku'))
@@ -55,6 +53,7 @@ class GomokuGame:
 
     def select_first_player(self, vs_ai: bool = False) -> int:
         self.clear()
+        self.display_title()
         print("\n" + "═" * 50)
         print("Qui commence la partie ?")
         if vs_ai:
@@ -130,6 +129,7 @@ class GomokuGame:
                 if move.upper() not in self.board.can_play:
                     print("Cette case est déjà prise!")
                     continue
+                self.moves_history.append(move)
                 return move
             except ValueError as e:
                 print(f"Erreur: {e}")
@@ -145,8 +145,20 @@ class GomokuGame:
         if game_mode == "Joueur contre IA" and current_player == 2:
             print("Tour de l'IA....")
         print(self.board)
+        print("Historique des coups : ")
+
+        i = 1
+        j = 1
+        for move in self.moves_history:
+            if (i+1)%2 == 0:
+                print(f"{j}. {move}", end=", ")
+                j = j + 1
+            else:
+                print(f"{move}", end="   ")
+            i = i + 1
 
     def play_pvp(self):
+        self.moves_history = []
         current_player = self.select_first_player(vs_ai=False)
         game_mode = "Joueur contre Joueur"
 
@@ -176,6 +188,7 @@ class GomokuGame:
             current_player = 3 - current_player
 
     def play_vs_ai(self):
+        self.moves_history = []
         current_player = self.select_first_player(vs_ai=True)
         value_board = 0
         game_mode = "Joueur contre IA"
@@ -193,6 +206,7 @@ class GomokuGame:
                     print("L'IA n'a pas pu trouver de coup valide!")
                     break
                 print(f"\nL'IA joue: {move}")
+                self.moves_history.append(move)
 
             self.board.play_to(current_player, move)
             value_board = self.board.heuristic(value_board, move, current_player)
