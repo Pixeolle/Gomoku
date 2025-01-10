@@ -8,10 +8,12 @@ from typing import *
 
 class Board:
 
-    def __init__(self, height : int = 15, width : int = 15, pawn = 60):
+    def __init__(self, height : int = 15, width : int = 15, rule = "normal", pawn = 60):
         self.height : int = height
         self.width : int = width
         self.total_pawn = pawn * 2
+        self.pawn_played = 0
+        self.rule = rule
 
         self.position : int = 0
         self.mask : int = 0
@@ -159,7 +161,24 @@ class Board:
 
     @property
     def can_play(self) -> List[str]:
+        if self.rule == "long pro":
+            if self.pawn_played == 0:
+                return ["H7"]
+            if self.pawn_played == 2:
+                free_position = []
+
+                middle_height = self.height // 2
+                middle_width = self.width // 2
+                for bit_offset in range(self.height * self.width):
+                    line = bit_offset % self.height
+                    column = bit_offset // self.height
+                    if not (middle_height - 3 <= line <= middle_height + 3 and middle_width - 3 <= column <= middle_width + 3):
+                        free_position.append(self.bit_to_coordinate(bit_offset))
+
+                return free_position
+
         free_position = [self.bit_to_coordinate(bit) for bit in range(self.height * self.width) if (self.mask >> bit) & 1 == 0]
+
         return free_position
 
     def bit_to_coordinate(self, bit : int, bit_offset = -1) -> str:
@@ -178,29 +197,46 @@ class Board:
 
         move, line, column = self.clean_move(move)
 
-        if move not in self.can_play :
-            raise ValueError(f"Position must be free : {move}")
+        if self.rule == "long pro" and move not in self.can_play:
+            raise ValueError(f"Position not allow by {self.rule} rules : {move}")
 
         bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
+        if (self.mask >> bit_offset) & 1 == 1:
+            raise ValueError(f"Position must be free : {move}")
+
         self.mask |= (1 << bit_offset)
         if player == 1:
             self.position |= (1 << bit_offset)
 
-        self.key = (self.mask << self.height * self.width ) | self.position
+        self.pawn_played += 1
+
+        self.update_forced_moves(player, bit_offset)
+
         return self
 
-    def undo_to(self, move : str) -> 'Board':
+    def undo_to(self, move : str, player : int) -> 'Board':
         move, line, column = self.clean_move(move)
 
         if move in self.can_play :
             raise ValueError(f"Position is not already taken")
 
+        if player not in [1, 2]:
+            raise ValueError(f"Player is not 1 or 2 : {player}")
+
         bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
+
+        bitboard = self.position if player == 1 else self.position ^ self.mask
+        if (bitboard >> bit_offset) & 1 != 1:
+            raise ValueError(f"This position is not taken by player {player}")
+
         self.mask ^= (1 << bit_offset)
         if (self.position >> bit_offset) & 1 == 1:
             self.position ^= (1 << bit_offset)
 
-        self.key = (self.mask << self.height * self.width ) | self.position
+        self.pawn_played -= 1
+
+        self.update_forced_moves(player, bit_offset)
+
         return self
 
     def check_winner(self, bitboard : int) -> bool:
@@ -236,7 +272,7 @@ class Board:
         if self.check_winner(self.position ^ self.mask):
             return -1
 
-        if Board.count_ones(self.mask) >= self.total_pawn:
+        if self.pawn_played >= self.total_pawn:
             return 0
 
         return None
@@ -393,26 +429,6 @@ class Board:
 
     def forced_moves_opti(self, player : int, move : str) -> Optional[Set]:
 
-        def search_bit_offset_by_new_move(move : str, player_board : int, opponent_board : int, player : int):
-            offsets = [1, self.height, self.height - 1, self.height + 1]
-            bit_offset_point = self.coordinate_to_bit(move)
-
-            k = 5
-            for offset in offsets:
-                bit_offset_by_direction = generate_bit_offset(bit_offset_point, offset, k)
-                for bit_offset in bit_offset_by_direction:
-                    result = check_k_row_by_bit_offset(opponent_board, player_board, bit_offset, offset, k)
-                    if result is not None:
-                        self.forced_bit_offset[f"4_p{player}"][offset].add(bit_offset)
-
-            k = 6
-            for offset in offsets:
-                bit_offset_by_direction = generate_bit_offset(bit_offset_point, offset, k)
-                for bit_offset in bit_offset_by_direction:
-                    result = check_k_row_by_bit_offset(opponent_board, player_board, bit_offset, offset, k)
-                    if result is not None:
-                        self.forced_bit_offset[f"3_p{player}"][offset].add(bit_offset)
-
         def check_bit_offset_saved(type_search : str, player_board : int, opponent_board : int, k) -> Optional[Set]:
 
             bit_offset_by_direction = self.forced_bit_offset[type_search]
@@ -422,51 +438,6 @@ class Board:
                 self.forced_bit_offset[type_search][key].difference_update(value)
 
             return check if len(check) > 0 else None
-
-        def check_k_row_by_bit_offset(bitboard : int, opponent_bit : int, bit_offset, offset : int, k : int) -> Optional[Set[str]]:
-            if k == 5:
-                ones_need = 4
-            elif k == 6:
-                ones_need = 3
-            else:
-                raise ValueError (f"k must be 5 or 6 : {k}")
-
-            if self.count_ones(bitboard) < ones_need:
-                return
-
-            if self.count_ones((bitboard >> bit_offset) & self.mask_one[k][offset]) < ones_need:
-                return
-
-            selected_bit = Board.select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
-            select_opponent = Board.select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
-
-            if select_opponent != 0:
-                return
-
-            if k == 5:
-                match selected_bit:
-                    case 0b01111:
-                        return {self.bit_to_coordinate(bit_offset + 4 * offset)}
-                    case 0b10111:
-                        return {self.bit_to_coordinate(bit_offset + 3 * offset)}
-                    case 0b11011:
-                        return {self.bit_to_coordinate(bit_offset + 2 * offset)}
-                    case 0b11101:
-                        return {self.bit_to_coordinate(bit_offset + 1 * offset)}
-                    case 0b11110:
-                        return {self.bit_to_coordinate(bit_offset)}
-            elif k == 6:
-                match selected_bit:
-                    case 0b001110:
-                        return {self.bit_to_coordinate(bit_offset + 4 * offset), self.bit_to_coordinate(bit_offset)}
-                    case 0b010110:
-                        return {self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)}
-                    case 0b011010:
-                        return {self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)}
-                    case 0b011100:
-                        return {self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 5 * offset)}
-
-            return
 
         def check_k_row(bitboard : int, opponent_bit : int, bit_offset_by_direction : Dict[int, Set[int]], k : int) -> Tuple[Dict[int, Set[int]], Set[str]]:
             if k == 5:
@@ -531,6 +502,77 @@ class Board:
 
             return bit_offset_to_discard, set()
 
+        player_board = self.position if player == 1 else self.position ^ self.mask
+        opponent_board = self.position if player == 2 else self.position ^ self.mask
+        opponent = player ^ 3
+
+        k = 5
+        check_4_player = check_bit_offset_saved(f"4_p{player}", player_board, opponent_board, k)
+        if check_4_player is not None:
+            return check_4_player
+
+        check_4_opponent = check_bit_offset_saved(f"4_p{opponent}", opponent_board, player_board, k)
+        if check_4_opponent is not None:
+            return check_4_opponent
+
+        k = 6
+        check_3_player = check_bit_offset_saved(f"3_p{player}", player_board, opponent_board, k)
+        if check_3_player is not None:
+            return check_3_player
+
+        check_3_opponent = check_bit_offset_saved(f"3_p{opponent}", opponent_board, player_board, k)
+        if check_3_opponent is not None:
+            return check_3_opponent
+
+        return None
+
+    def update_forced_moves(self, player : int, bit_offset_point : int):
+
+        def check_k_row_by_bit_offset(bitboard : int, opponent_bit : int, bit_offset, offset : int, k : int) -> Optional[Set[str]]:
+            if k == 5:
+                ones_need = 4
+            elif k == 6:
+                ones_need = 3
+            else:
+                raise ValueError (f"k must be 5 or 6 : {k}")
+
+            if self.count_ones(bitboard) < ones_need:
+                return
+
+            if self.count_ones((bitboard >> bit_offset) & self.mask_one[k][offset]) < ones_need:
+                return
+
+            selected_bit = Board.select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
+            select_opponent = Board.select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
+
+            if select_opponent != 0:
+                return
+
+            if k == 5:
+                match selected_bit:
+                    case 0b01111:
+                        return {self.bit_to_coordinate(bit_offset + 4 * offset)}
+                    case 0b10111:
+                        return {self.bit_to_coordinate(bit_offset + 3 * offset)}
+                    case 0b11011:
+                        return {self.bit_to_coordinate(bit_offset + 2 * offset)}
+                    case 0b11101:
+                        return {self.bit_to_coordinate(bit_offset + 1 * offset)}
+                    case 0b11110:
+                        return {self.bit_to_coordinate(bit_offset)}
+            elif k == 6:
+                match selected_bit:
+                    case 0b001110:
+                        return {self.bit_to_coordinate(bit_offset + 4 * offset), self.bit_to_coordinate(bit_offset)}
+                    case 0b010110:
+                        return {self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)}
+                    case 0b011010:
+                        return {self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset), self.bit_to_coordinate(bit_offset + 5 * offset, bit_offset)}
+                    case 0b011100:
+                        return {self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 5 * offset)}
+
+            return
+
         def generate_bit_offset(origin_offset, offset, k):
             def valid_bit_offset_by_direction(bit_offset, offset, k):
                 if bit_offset < 0:
@@ -553,32 +595,32 @@ class Board:
 
             return bits
 
+
         player_board = self.position if player == 1 else self.position ^ self.mask
         opponent_board = self.position if player == 2 else self.position ^ self.mask
-        opponent = player ^ 3
-
-        search_bit_offset_by_new_move(move, player_board, opponent_board, opponent) # Probleme a regler priorité pas bonne et rajouter tri entre 4 joueur 1 et 4 joueur 2 pour le stockage des bit_offset
+        offsets = [1, self.height, self.height - 1, self.height + 1]
 
 
         k = 5
-        check_4_player = check_bit_offset_saved(f"4_p{player}", player_board, opponent_board, k)
-        if check_4_player is not None:
-            return check_4_player
-
-        check_4_opponent = check_bit_offset_saved(f"4_p{opponent}", opponent_board, player_board, k)
-        if check_4_opponent is not None:
-            return check_4_opponent
+        for offset in offsets:
+            bit_offset_by_direction = generate_bit_offset(bit_offset_point, offset, k)
+            for bit_offset in bit_offset_by_direction:
+                result = check_k_row_by_bit_offset(player_board, opponent_board, bit_offset, offset, k)
+                if result is None:
+                    self.forced_bit_offset[f"4_p{player}"][offset].discard(bit_offset)
+                else:
+                    self.forced_bit_offset[f"4_p{player}"][offset].add(bit_offset)
 
         k = 6
-        check_3_player = check_bit_offset_saved(f"3_p{player}", player_board, opponent_board, k)
-        if check_3_player is not None:
-            return check_3_player
+        for offset in offsets:
+            bit_offset_by_direction = generate_bit_offset(bit_offset_point, offset, k)
+            for bit_offset in bit_offset_by_direction:
+                result = check_k_row_by_bit_offset(player_board, opponent_board, bit_offset, offset, k)
 
-        check_3_opponent = check_bit_offset_saved(f"3_p{opponent}", opponent_board, player_board, k)
-        if check_3_opponent is not None:
-            return check_3_opponent
-
-        return None
+                if result is None:
+                    self.forced_bit_offset[f"3_p{player}"][offset].discard(bit_offset)
+                else :
+                    self.forced_bit_offset[f"3_p{player}"][offset].add(bit_offset)
 
     def heuristic(self, value : int, move : str, player : int, display = False) -> int:
 
@@ -789,6 +831,20 @@ class Board:
                 bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
 
                 #str_to_print += f"| {bit_offset} "
+                line = bit_offset % self.height
+                column = bit_offset // self.height
+                middle_height = self.height // 2
+                middle_width = self.width // 2
+
+                if line == 7 and column == 7:
+                    str_to_print += f"| \033[91mX\033[0m "
+                elif not (middle_height - 3 <= line <= middle_height + 3 and middle_width - 3 <= column <= middle_width + 3)  :
+                    str_to_print += f"| \033[92mX\033[0m "
+                else :
+                    str_to_print += f"|   "
+
+
+                """
                 if column == column_move and line == line_move  :
                     str_to_print += f"| \033[94mO\033[0m "
                 else:
@@ -799,6 +855,7 @@ class Board:
                             find = True
                     if not find:
                         str_to_print += f"|   "
+                """
 
             str_to_print += "|\n"
 
