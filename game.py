@@ -53,17 +53,31 @@ def generate_board_id():
         print(f"Value Board : {value_board}")
         print(f"Position : {board.position}")
         print(f"Mask : {board.mask}")
+
+        loop = 100
+
         start = datetime.now()
-        for _ in range(100):
+        for _ in range(loop):
             a = board.forced_moves(player)
-        print(f"v1 : {datetime.now() - start}")
+        t_v1 = datetime.now() - start
+
         start = datetime.now()
-        for _ in range(100):
-            b = board.forced_moves_fix(player)
-        print(f"v2 : {datetime.now() - start}")
-        print(f"Valid : {a == b}")
-        print(f"a : {a}")
+        for _ in range(loop):
+            b = board.forced_moves_opti(player, input_player)
+        t_v2 = datetime.now() - start
+
+        print(f"a = {a}")
         print(f"b : {b}")
+        print(f"V1 : {t_v1 / loop} | V2 : {t_v2 / loop}")
+
+        if t_v1 > timedelta(seconds=0):
+            print(f"Gain : {1 - t_v2 / t_v1}")
+
+        if a is not None and b is not None:
+            a = set(a)
+            if a.issubset(b):
+                print("Correct")
+
 
 
     print(f"Winner = {board.is_winning}")
@@ -255,9 +269,12 @@ def test_forced_move():
                 a = board.forced_mouvs(1)
                 print(a)
 
-#generate_board_id()
+generate_board_id()
 #test_forced_move()
-against_ai()
+#against_ai()
+
+"""board = Board()
+print(board.get_test())"""
 
 
 
