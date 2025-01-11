@@ -9,7 +9,7 @@ from typing import *
 
 class Board:
 
-    def __init__(self, height : int = 15, width : int = 15, rule = "normal", pawn = 60):
+    def __init__(self, height : int = 15, width : int = 15, rule = "normal", pawn = 60, weights = None):
         self.height : int = height
         self.width : int = width
         self.total_pawn = pawn * 2
@@ -114,6 +114,16 @@ class Board:
                 self.height + 1 : Board.bit_builder(1, self.height , 6)
             }
         }
+
+        if weights is None:
+            self.weights = {
+                2 : 40,
+                3 : 75,
+                4 : 140,
+                5 : 10000
+            }
+        else:
+            self.weights = weights
 
         self.key = 0
 
@@ -683,13 +693,6 @@ class Board:
 
             return stone_find
 
-        weight = {
-            2 : 40,
-            3 : 75,
-            4 : 140,
-            5 : 10000
-        }
-
         player_board = self.position if player == 1 else self.position ^ self.mask
         opponent_board = self.position if player == 2 else self.position ^ self.mask
 
@@ -707,7 +710,7 @@ class Board:
                 if result_player is not None:
                     if result_player < 5 and not ghost:
                         self.alignment_bit_offset[f"{result_player}_p{player}"][offset].add(bit_offset)
-                    update_value += weight[result_player]
+                    update_value += self.weights[result_player]
 
                 for alignement_range in range(2, 5):
                     if bit_offset in self.alignment_bit_offset[f"{alignement_range}_p{opponent}"][offset]:
@@ -715,7 +718,7 @@ class Board:
                         if result_opponent is None :
                             if not ghost:
                                 self.alignment_bit_offset[f"{alignement_range}_p{opponent}"][offset].discard(bit_offset)
-                            update_value += weight[alignement_range]
+                            update_value += self.weights[alignement_range]
 
         if ghost :
             return update_value
