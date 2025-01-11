@@ -42,7 +42,7 @@ class AI:
 
         try:
             while datetime.now() < end and depth <= remaining_moves:
-                value, move, flag = self.negamax(board.copy(), depth, player, end, previous_move, first=True)
+                value, move, flag = self.negamax(board.copy(), depth, player, end, previous_move)
                 if move is not None:
                     best_move = move
                     best_value = value
