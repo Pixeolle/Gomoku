@@ -6,13 +6,12 @@ from pyfiglet import Figlet
 from board import Board
 from AI import AI
 
-#Liste des derniers coups joués par les joueurs
 
 class GomokuGame:
     def __init__(self):
         self.board = Board()
         self.ai = AI(self.board)
-        self.game_mode = "normal"
+        self.game_mode = None
         self.style_x = "\033[91mX\033[0m"
         self.style_o = "\033[94mO\033[0m"
         self.moves_history = []
@@ -28,11 +27,12 @@ class GomokuGame:
         print("Menu Principal:")
         print("1. Joueur contre Joueur")
         print("2. Joueur contre IA")
-        print("3. Règles du jeu")
-        print("4. Voir une partie sauvegardée")
-        print("5. Quitter")
+        print("3. IA contre IA")
+        print("4. Règles du jeu")
+        print("5. Voir une partie sauvegardée")
+        print("6. Quitter")
         print("═" * 50)
-        return input("\nVotre choix (1-5): ")
+        return input("\nVotre choix (1-6): ")
 
     def select_game_mode(self) -> str:
         self.clear()
@@ -40,7 +40,7 @@ class GomokuGame:
         print("\n" + "═" * 50)
         print("Sélection du mode de jeu:")
         print("1. Mode Normal")
-        print("2. Mode Pro ")
+        print("2. Mode Long Pro")
         print("═" * 50)
 
         while True:
@@ -48,21 +48,24 @@ class GomokuGame:
             if choice == "1":
                 return "normal"
             elif choice == "2":
-                return "pro"
+                return "long pro"
             else:
                 print("Choix invalide! Veuillez choisir 1 ou 2.")
 
-    def select_first_player(self, vs_ai: bool = False) -> int:
+    def select_first_player(self, game_type: str = None) -> int:
         self.clear()
         self.display_title()
         print("\n" + "═" * 50)
         print("Qui commence la partie ?")
-        if vs_ai:
-            print("1. Joueur")
-            print("2. IA")
-        else:
+        if game_type == "pvp":
             print(f"1. Joueur 1 ({self.style_o})")
             print(f"2. Joueur 2 ({self.style_x})")
+        elif game_type == "ai_vs_ai":
+            print("1. IA 1")
+            print("2. IA 2")
+        else:
+            print("1. Joueur")
+            print("2. IA")
         print("3. Aléatoire")
         print("═" * 50)
 
@@ -72,11 +75,10 @@ class GomokuGame:
                 return int(choice)
             elif choice == "3":
                 first = random.randint(1, 2)
-                if vs_ai:
-                    if first == 1:
-                        print("\nLe joueur commence!")
-                    else:
-                        print("\nL'IA commence!")
+                if game_type == "ai_vs_ai":
+                    print(f"\nL'IA {first} commence!")
+                elif game_type == "pve":
+                    print("\nLe joueur commence!" if first == 1 else "\nL'IA commence!")
                 else:
                     print(f"\nLe joueur {first} commence!")
                 input("\nAppuyez sur Entrée pour continuer...")
@@ -108,10 +110,13 @@ class GomokuGame:
         ════════════════════════════════════════════════════════════════
         """
 
-        if self.game_mode == "pro":
+        if self.game_mode == "long pro":
             rules_text += """
-        Règles additionnelles du mode Pro:
-        • BLABLABLA
+        Règles additionnelles du mode long Pro:
+        • En début de partie le premier joueur peut jouer n'importe où
+        • Le deuxième joueur place ensuite un pion n'importe où
+        • Ensuite, le premier joueur doit jouer dans un carré de 7x7 avec pour centre son premier coup.
+        • Les joueurs continuent à jouer de façon classique
         ════════════════════════════════════════════════════════════════
         """
         print(rules_text)
@@ -128,7 +133,7 @@ class GomokuGame:
                 if move.lower() == 'quit':
                     return move
                 if move.upper() not in self.board.can_play:
-                    print("Cette case est déjà prise!")
+                    print("Coup non valide ! Veuillez entrer un coup valide.")
                     continue
                 self.moves_history.append(move)
                 return move
@@ -192,7 +197,7 @@ class GomokuGame:
 
     def play_pvp(self):
         self.moves_history = []
-        current_player = self.select_first_player(vs_ai=False)
+        current_player = self.select_first_player(game_type="pvp")
         game_mode = "Joueur contre Joueur"
 
         while True:
@@ -215,9 +220,6 @@ class GomokuGame:
                     else:
                         player_symbol = self.style_x
                     print(f"\n═══ Le Joueur {current_player} ({player_symbol}) a gagné! ═══")
-
-
-                print("BABGFEBFZEFHZE")
                 self.ask_save_moves()
                 input("\nAppuyez sur Entrée pour revenir au menu...")
                 break
@@ -226,7 +228,7 @@ class GomokuGame:
 
     def play_vs_ai(self):
         self.moves_history = []
-        current_player = self.select_first_player(vs_ai=True)
+        current_player = self.select_first_player(game_type="vs_ai")
         value_board = 0
         game_mode = "Joueur contre IA"
 
@@ -257,6 +259,38 @@ class GomokuGame:
                     print("\n═══ Vous avez gagné contre l'IA! ═══")
                 else:
                     print("\n═══ L'IA vous a écrasé! ═══")
+                self.ask_save_moves()
+                input("\nAppuyez sur Entrée pour revenir au menu...")
+                break
+
+            current_player = 3 - current_player
+
+    def play_ai_vs_ai(self):
+        self.moves_history = []
+        current_player = self.select_first_player(game_type="ai_vs_ai")
+        game_mode = "IA contre IA"
+        value_board = 0
+
+        while True:
+            self.display_game_state(current_player, game_mode)
+
+            _, move, _ = self.ai.search(self.board, current_player, value_board)
+            if move is None:
+                print(f"L'IA {current_player} n'a pas pu trouver de coup valide!")
+                break
+
+            print(f"\nL'IA {current_player} joue: {move}")
+            self.moves_history.append(move)
+            self.board.play_to(current_player, move)
+            value_board = self.board.heuristic(value_board, move, current_player)
+
+            winner = self.board.is_winning
+            if winner is not None:
+                self.display_game_state(current_player, game_mode)
+                if winner == 0:
+                    print("\n═══ Match nul! ═══")
+                else:
+                    print(f"\n═══ L'IA {current_player} a gagné! ═══")
                 self.ask_save_moves()
                 input("\nAppuyez sur Entrée pour revenir au menu...")
                 break
@@ -313,32 +347,33 @@ class GomokuGame:
         input("\nAppuyez sur Entrée pour revenir au menu...")
 
     def run(self):
+        self.display_title()
+        self.game_mode = self.select_game_mode()
+
         while True:
             self.clear()
-            self.display_title()
-
-            if not hasattr(self, 'game_mode'):
-                self.game_mode = self.select_game_mode()
-
             choice = self.display_menu()
 
             match choice:
                 case "1":
-                    self.board = Board()
+                    self.board = Board(rule=self.game_mode)
                     self.play_pvp()
                 case "2":
-                    self.board = Board()
+                    self.board = Board(rule=self.game_mode)
                     self.play_vs_ai()
                 case "3":
-                    self.display_rules()
+                    self.board = Board(rule=self.game_mode)
+                    self.play_ai_vs_ai()
                 case "4":
-                    self.load_and_display_game()
+                    self.display_rules()
                 case "5":
+                    self.load_and_display_game()
+                case "6":
                     self.clear()
                     print("\nMerci d'avoir joué au Gomoku!\n")
                     break
                 case _:
-                    print("\nChoix invalide! Veuillez choisir une option entre 1 et 5.")
+                    print("\nChoix invalide! Veuillez choisir une option entre 1 et 6.")
                     input("\nAppuyez sur Entrée pour continuer...")
 
 if __name__ == "__main__":
