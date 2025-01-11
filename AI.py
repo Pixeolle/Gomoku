@@ -223,13 +223,12 @@ class AI:
         if moves is not None :
             moves = list(moves)
             moves.sort(key=lambda x : board.update_alignment(player, board.coordinate_to_bit(x), True), reverse=True)
-            if display :
-                for mouvement in moves:
-                    print(f"{mouvement} : {board.update_alignment(player, board.coordinate_to_bit(mouvement), True)} | ", end="")
-                print()
             return moves
 
-        moves = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
+        if board.rule == "long pro" and board.pawn_played == 2:
+            moves = board.can_play
+        else :
+            moves = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
         moves.sort(key=lambda x : board.update_alignment(player, board.coordinate_to_bit(x), True), reverse=True)
 
         if display :
