@@ -27,8 +27,9 @@ check_defense = (5192376087906286159226792757428224, 510431338905924868895035403
 def generate_board_id():
 
     board = Board()
-    board.position = 5192455329366965992581233513594880
-    board.mask = 36346553393226136395067175341129728
+    #board.position = 5192455329366965992581233513594880
+    #board.mask = 36346553393226136395067175341129728
+    ai = AI(board)
     value_board = 0
     print(board)
     player = 1
@@ -43,41 +44,28 @@ def generate_board_id():
                     board.play_to(player, input_player)
                     player = 1 if player == 2 else 2
                 move_valid = True
-            except Exception as e:
+            except ValueError as e:
                 print(f"Error : {e}")
 
+
         print(board)
-        start = datetime.now()
-        value_board = board.heuristic(value_board, input_player, 1 if player == 2 else 2)
-        print(f"Temps : {datetime.now() - start}")
-        print(f"Value Board : {value_board}")
-        print(f"Position : {board.position}")
-        print(f"Mask : {board.mask}")
+        print(f"Value Board : {board.heuristic_value}")
 
-        loop = 100
+        a = board.forced_moves(player)
+        b = board.forced_moves_opti(player)
 
-        start = datetime.now()
-        for _ in range(loop):
-            a = board.forced_moves(player)
-        t_v1 = datetime.now() - start
+        print(f"Alignment : {board.alignment_bit_offset}")
 
-        start = datetime.now()
-        for _ in range(loop):
-            b = board.forced_moves_opti(player, input_player)
-        t_v2 = datetime.now() - start
-
-        print(f"a = {a}")
+        print(f"a : {a}")
         print(f"b : {b}")
-        print(f"V1 : {t_v1 / loop} | V2 : {t_v2 / loop}")
 
-        if t_v1 > timedelta(seconds=0):
-            print(f"Gain : {1 - t_v2 / t_v1}")
 
         if a is not None and b is not None:
             a = set(a)
             if a.issubset(b):
                 print("Correct")
 
+        ai.get_child_mouvs(board, player, True)
 
 
     print(f"Winner = {board.is_winning}")
@@ -118,26 +106,20 @@ def alpha_beta_test(board_setting, depth, player):
 def test():
 
     board = Board()
-    move_list = board.can_play * 100
+    board.position = 5192455329366965992581233513594880
+    board.mask = 36346553393226136395067175341129728
+    value_board = 0
+    print(board)
+    player = 1
 
-    start_copy = datetime.now()
-    for move in move_list:
-        board_1 = board.copy().play_to(1, move)
-
-    end_copy = datetime.now()
-
-    start_undo = datetime.now()
-    for move in move_list:
-        board.play_to(1, move)
-        board.undo_to(move)
-    end_undo = datetime.now()
-
-    print(f"Undo : {end_undo - start_undo} Copy : {end_copy - start_copy} Gap : {min(end_undo - start_undo, end_copy - start_copy) / max(end_undo - start_undo, end_copy - start_copy)}")
+    board.play_to(1, "J9")
+    print(board.forced_bit_offset)
+    board.undo_to("J9", 1)
+    print(board.forced_bit_offset)
 
 def against_ai():
     board = Board()
     ai = AI(board)
-    value_board = 0
 
     print(board)
     player = 1
@@ -151,7 +133,6 @@ def against_ai():
                     input_player = input("")
                     if input_player != "stop":
                         board.play_to(player, input_player)
-                        value_board = board.heuristic(value_board, input_player, player)
                     move_valid = True
                 except Exception as e:
                     print(f"Error : {e}")
@@ -159,16 +140,15 @@ def against_ai():
             ai.prunning = 0
             ai.tot = 0
             start_former = datetime.now()
-            move_former = ai.search(board, player, value_board)
+            move_former = ai.search(board, player, input_player)
             time_former = datetime.now() - start_former
             print(f"Value : {move_former[0]} | Move : {move_former[1]} | Flag : {move_former[2]} | Time : {time_former} ")
             board.play_to(player, move_former[1])
-            value_board = board.heuristic(value_board, input_player, player)
 
 
         print(f"{board}")
         player = 1 if player == 2 else 2
-        ai.get_child_mouvs(board, player, value_board, True)
+        ai.get_child_mouvs(board, player, True)
 
 
     return board.position, board.mask
@@ -269,13 +249,14 @@ def test_forced_move():
                 a = board.forced_mouvs(1)
                 print(a)
 
-generate_board_id()
+#generate_board_id()
 #test_forced_move()
-#against_ai()
-
-"""board = Board()
-print(board.get_test())"""
-
+against_ai()
+#test()
+"""
+board = Board()
+print(board.get_test())
+"""
 
 
 

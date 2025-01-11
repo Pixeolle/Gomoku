@@ -1,6 +1,7 @@
 import math
 import random
 import shutil
+from datetime import datetime
 
 import numpy as np
 from typing import *
@@ -41,6 +42,46 @@ class Board:
                 self.height : set(),
                 self.height - 1 : set(),
                 self.height + 1 : set()
+            }
+        }
+
+        self.heuristic_value = 0
+        self.alignment_bit_offset = {
+            "4_p1" : {
+                1 : set(),
+                self.height : set(),
+                self.height - 1 : set(),
+                self.height + 1 : set()
+            },
+            "4_p2" : {
+                1 : set(),
+                self.height : set(),
+                self.height - 1 : set(),
+                self.height + 1 : set()
+            },
+            "3_p1" : {
+                1 : set(),
+                self.height : set(),
+                self.height - 1 : set(),
+                self.height + 1 : set()
+            },
+            "3_p2" : {
+                1 : set(),
+                self.height : set(),
+                self.height - 1 : set(),
+                self.height + 1 : set()
+            },
+            "2_p1" : {
+                1 : set(),
+                self.height : set(),
+                self.height - 1 : set(),
+                self.height + 1 : set()
+            },
+            "2_p2" : {
+                1 : set(),
+                self.height : set(),
+                self.height - 1 : set(),
+                self.height + 1 : set()
             },
         }
 
@@ -74,7 +115,7 @@ class Board:
             }
         }
 
-        self.key = (self.mask << self.height * self.width ) | self.position
+        self.key = 0
 
     def __str__(self) -> str:
         number_to_object = {0: "\033[91mX\033[0m", 1: "\033[94mO\033[0m"}
@@ -120,9 +161,19 @@ class Board:
 
     def copy(self) -> 'Board':
         new_board = Board(self.height, self.width)
+        new_board.total_pawn = self.total_pawn
+        new_board.pawn_played = self.pawn_played
+        new_board.rule = self.rule
+
         new_board.position = self.position
         new_board.mask = self.mask
+        new_board.forced_bit_offset = self.forced_bit_offset
+
+        new_board.heuristic_value = self.heuristic_value
+        new_board.alignment_bit_offset = self.alignment_bit_offset
+
         new_board.key = self.key
+
         return new_board
 
     @property
@@ -197,7 +248,7 @@ class Board:
 
         move, line, column = self.clean_move(move)
 
-        if self.rule == "long pro" and move not in self.can_play:
+        if self.rule == "long pro" and self.pawn_played in [0, 2] and move not in self.can_play:
             raise ValueError(f"Position not allow by {self.rule} rules : {move}")
 
         bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
@@ -211,6 +262,7 @@ class Board:
         self.pawn_played += 1
 
         self.update_forced_moves(player, bit_offset)
+        self.update_alignment(player, bit_offset)
 
         return self
 
@@ -330,11 +382,6 @@ class Board:
             case _ :
                 raise ValueError(f"Angle is not valid : {angle}")
 
-    def invert_key(self) -> int:
-        position = self.invert_one_zero(self.position) & self.mask
-        key = (self.mask << self.height * self.width ) | position
-        return key
-
     @staticmethod
     def select_k_by_offset_bit(bitboard : int, k : int, offset : int) -> int:
         index = 1
@@ -427,7 +474,7 @@ class Board:
             return check_3_opponent
         return None
 
-    def forced_moves_opti(self, player : int, move : str) -> Optional[Set]:
+    def forced_moves_opti(self, player : int) -> Optional[Set]:
 
         def check_bit_offset_saved(type_search : str, player_board : int, opponent_board : int, k) -> Optional[Set]:
 
@@ -526,6 +573,28 @@ class Board:
 
         return None
 
+    def generate_bit_offset(self, origin_offset, offset, k):
+        def valid_bit_offset_by_direction(bit_offset, offset, k):
+            if bit_offset < 0:
+                return False
+            elif (offset == 1 or offset == self.height + 1) and bit_offset % self.height > self.height - k:
+                return False
+            elif (offset == self.height or offset == self.height - 1 or offset == self.height + 1) and bit_offset // self.height > self.width - k:
+                return False
+            elif offset == self.height - 1 and bit_offset % self.height < k - 1:
+                return False
+            return True
+
+        bits = set()
+        start = 0 if k == 5 else 1
+
+        for index in range(start, 5):
+            bit_to_append = origin_offset - index * offset
+            if valid_bit_offset_by_direction(bit_to_append, offset, k) :
+                bits.add(bit_to_append)
+
+        return bits
+
     def update_forced_moves(self, player : int, bit_offset_point : int):
 
         def check_k_row_by_bit_offset(bitboard : int, opponent_bit : int, bit_offset, offset : int, k : int) -> Optional[Set[str]]:
@@ -573,29 +642,6 @@ class Board:
 
             return
 
-        def generate_bit_offset(origin_offset, offset, k):
-            def valid_bit_offset_by_direction(bit_offset, offset, k):
-                if bit_offset < 0:
-                    return False
-                elif (offset == 1 or offset == self.height + 1) and bit_offset % self.height > self.height - k:
-                    return False
-                elif (offset == self.height or self.height - 1 or self.height + 1) and bit_offset // self.height > self.width - k:
-                    return False
-                elif offset == self.height - 1 and bit_offset % self.height < k - 1:
-                    return False
-                return True
-
-            bits = set()
-            start = 0 if k == 5 else 1
-
-            for index in range(start, 5):
-                bit_to_append = origin_offset - index * offset
-                if valid_bit_offset_by_direction(bit_to_append, offset, k) :
-                    bits.add(bit_to_append)
-
-            return bits
-
-
         player_board = self.position if player == 1 else self.position ^ self.mask
         opponent_board = self.position if player == 2 else self.position ^ self.mask
         offsets = [1, self.height, self.height - 1, self.height + 1]
@@ -603,7 +649,7 @@ class Board:
 
         k = 5
         for offset in offsets:
-            bit_offset_by_direction = generate_bit_offset(bit_offset_point, offset, k)
+            bit_offset_by_direction = self.generate_bit_offset(bit_offset_point, offset, k)
             for bit_offset in bit_offset_by_direction:
                 result = check_k_row_by_bit_offset(player_board, opponent_board, bit_offset, offset, k)
                 if result is None:
@@ -613,7 +659,7 @@ class Board:
 
         k = 6
         for offset in offsets:
-            bit_offset_by_direction = generate_bit_offset(bit_offset_point, offset, k)
+            bit_offset_by_direction = self.generate_bit_offset(bit_offset_point, offset, k)
             for bit_offset in bit_offset_by_direction:
                 result = check_k_row_by_bit_offset(player_board, opponent_board, bit_offset, offset, k)
 
@@ -622,9 +668,65 @@ class Board:
                 else :
                     self.forced_bit_offset[f"3_p{player}"][offset].add(bit_offset)
 
+    def update_alignment(self, player : int, bit_offset_point : int, ghost : bool = False):
+
+        def check_alignment(bitboard : int, opponent_bit : int, bit_offset : int, offset : int, k : int):
+            selected_bit = Board.select_k_by_offset_bit((bitboard >> bit_offset), k, offset)
+            select_opponent = Board.select_k_by_offset_bit((opponent_bit >> bit_offset), k, offset)
+
+            if select_opponent != 0:
+                return None
+
+            stone_find = self.count_ones(selected_bit)
+            if stone_find < 2:
+                return None
+
+            return stone_find
+
+        weight = {
+            2 : 40,
+            3 : 75,
+            4 : 140,
+            5 : 10000
+        }
+
+        player_board = self.position if player == 1 else self.position ^ self.mask
+        opponent_board = self.position if player == 2 else self.position ^ self.mask
+
+        if ghost :
+            player_board |= (1 << bit_offset_point)
+
+        offsets = [1, self.height, self.height - 1, self.height + 1]
+        opponent = player ^ 3
+        update_value = 0
+
+        for offset in offsets:
+            bit_offset_by_direction = self.generate_bit_offset(bit_offset_point, offset, 5)
+            for bit_offset in bit_offset_by_direction:
+                result_player = check_alignment(player_board, opponent_board, bit_offset, offset, 5)
+                if result_player is not None:
+                    if result_player < 5 and not ghost:
+                        self.alignment_bit_offset[f"{result_player}_p{player}"][offset].add(bit_offset)
+                    update_value += weight[result_player]
+
+                for alignement_range in range(2, 5):
+                    if bit_offset in self.alignment_bit_offset[f"{alignement_range}_p{opponent}"][offset]:
+                        result_opponent = check_alignment(opponent_board, player_board, bit_offset, offset, 5)
+                        if result_opponent is None :
+                            if not ghost:
+                                self.alignment_bit_offset[f"{alignement_range}_p{opponent}"][offset].discard(bit_offset)
+                            update_value += weight[alignement_range]
+
+        if ghost :
+            return update_value
+
+        relative_value = update_value if player == 1 else -update_value
+        self.heuristic_value += relative_value
+
     def heuristic(self, value : int, move : str, player : int, display = False) -> int:
 
         def heuristic_direction(bit_shift, offset : int, player_bits : int, opponent_bits : int) -> int:
+
 
             attack_sum = 0
             attack_max = 0
@@ -666,7 +768,6 @@ class Board:
         player_bits = self.position if player == 1 else self.position ^ self.mask
         opponent_bits = self.position if player == 2 else self.position ^ self.mask
         bit_shift = self.coordinate_to_bit(move)
-
         player_bits |= (1 << bit_shift)
 
         if display :
@@ -788,7 +889,7 @@ class Board:
                 return False
             elif (offset == 1 or offset == self.height + 1) and bit_offset % self.height > self.height - k:
                 return False
-            elif (offset == self.height or self.height - 1 or self.height + 1) and bit_offset // self.height > self.width - k:
+            elif (offset == self.height or offset == self.height - 1 or offset == self.height + 1) and bit_offset // self.height > self.width - k:
                 return False
             elif offset == self.height - 1 and bit_offset % self.height < k - 1:
                 return False
@@ -799,12 +900,12 @@ class Board:
 
             for index in range(1, 5):
                 bit_to_append = origin_offset - index * offset
-                if valid_bit_offset_by_direction(bit_to_append, offset, 6) :
+                if valid_bit_offset_by_direction(bit_to_append, offset, 5) :
                     bits.append(bit_to_append)
 
             return bits
 
-        move = "L13"
+        move = "C2"
         offsets = [1, self.height, self.height - 1, self.height + 1]
         distance_to_object = {
             offsets[0] : "\033[92mX\033[0m",  # Green
@@ -830,22 +931,10 @@ class Board:
             for column in range(self.width):
                 bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
 
-                #str_to_print += f"| {bit_offset} "
-                line = bit_offset % self.height
-                column = bit_offset // self.height
-                middle_height = self.height // 2
-                middle_width = self.width // 2
-
-                if line == 7 and column == 7:
-                    str_to_print += f"| \033[91mX\033[0m "
-                elif not (middle_height - 3 <= line <= middle_height + 3 and middle_width - 3 <= column <= middle_width + 3)  :
-                    str_to_print += f"| \033[92mX\033[0m "
-                else :
-                    str_to_print += f"|   "
+                #str_to_print += f"| {bit_offset % self.height} "
 
 
-                """
-                if column == column_move and line == line_move  :
+                if bit_offset == bit_offset_point  :
                     str_to_print += f"| \033[94mO\033[0m "
                 else:
                     find = False
@@ -855,7 +944,7 @@ class Board:
                             find = True
                     if not find:
                         str_to_print += f"|   "
-                """
+
 
             str_to_print += "|\n"
 
