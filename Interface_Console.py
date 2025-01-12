@@ -15,6 +15,7 @@ class GomokuGame:
         self.style_x = "\033[91mX\033[0m"
         self.style_o = "\033[94mO\033[0m"
         self.moves_history = []
+        self.ia_timer = None
 
     def clear(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -30,9 +31,10 @@ class GomokuGame:
         print("3. IA contre IA")
         print("4. Règles du jeu")
         print("5. Voir une partie sauvegardée")
-        print("6. Quitter")
+        print("6. Changer le mode de jeu")
+        print("7. Quitter")
         print("═" * 50)
-        return input("\nVotre choix (1-6): ")
+        return input("\nVotre choix (1-7): ")
 
     def select_game_mode(self) -> str:
         self.clear()
@@ -148,10 +150,14 @@ class GomokuGame:
         else:
             player_symbol = self.style_x
         print(f"Tour du Joueur {current_player} ({player_symbol})")
-        if game_mode == "Joueur contre IA" and current_player == 2:
+
+        if game_mode == "Joueur contre IA" and current_player == 1 and self.ia_timer is not None:
+            print(f"Temps de réflexion de l'IA: {self.ia_timer}")
+        elif game_mode == "Joueur contre IA" and current_player == 2:
             print("Tour de l'IA....")
+
         print(self.board)
-        print("Historique des coups : ")
+        print("Historique des 10 derniers coups : ")
 
         player1_moves = self.moves_history[::2][-10:]
         player2_moves = self.moves_history[1::2][-10:]
@@ -163,7 +169,7 @@ class GomokuGame:
                 print()
         print()
 
-        # Display moves for Player 2
+
         print("Joueur 2:")
         for i, move in enumerate(player2_moves, start=1):
             print(f"{i:2d}. {move:<3}", end="   ")
@@ -231,6 +237,7 @@ class GomokuGame:
         current_player = self.select_first_player(game_type="vs_ai")
         value_board = 0
         game_mode = "Joueur contre IA"
+        self.ia_timer = None
 
         while True:
             self.display_game_state(current_player, game_mode)
@@ -240,7 +247,10 @@ class GomokuGame:
                 if move.lower() == 'quit':
                     break
             else:
+                start_timer = datetime.now()
                 _, move, _ = self.ai.search(self.board, current_player, value_board)
+                end_timer = datetime.now()
+                self.ia_timer = end_timer - start_timer
                 if move is None:
                     print("L'IA n'a pas pu trouver de coup valide!")
                     break
@@ -291,6 +301,7 @@ class GomokuGame:
                     print("\n═══ Match nul! ═══")
                 else:
                     print(f"\n═══ L'IA {current_player} a gagné! ═══")
+                input("\nAppuyez sur Entrée pour continuer...")
                 self.ask_save_moves()
                 input("\nAppuyez sur Entrée pour revenir au menu...")
                 break
@@ -347,11 +358,15 @@ class GomokuGame:
         input("\nAppuyez sur Entrée pour revenir au menu...")
 
     def run(self):
-        self.display_title()
-        self.game_mode = self.select_game_mode()
-
         while True:
             self.clear()
+            self.display_title()
+
+            if not hasattr(self, 'game_mode') or self.game_mode is None:
+                self.game_mode = self.select_game_mode()
+            if self.game_mode is None:
+                continue
+
             choice = self.display_menu()
 
             match choice:
@@ -369,11 +384,13 @@ class GomokuGame:
                 case "5":
                     self.load_and_display_game()
                 case "6":
+                    self.game_mode = None
+                case "7":
                     self.clear()
                     print("\nMerci d'avoir joué au Gomoku!\n")
                     break
                 case _:
-                    print("\nChoix invalide! Veuillez choisir une option entre 1 et 6.")
+                    print("\nChoix invalide! Veuillez choisir une option entre 1 et 7.")
                     input("\nAppuyez sur Entrée pour continuer...")
 
 if __name__ == "__main__":
