@@ -366,6 +366,7 @@ class Board:
 
         position = self.position
         mask = self.mask
+        self.key = (self.mask << self.height * self.width ) | self.position
         keys = [self.key]
 
         for _ in range(3):
