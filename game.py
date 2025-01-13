@@ -49,23 +49,24 @@ def generate_board_id():
 
 
         print(board)
+        print(f"Avant Forced : {board.forced_bit_offset}")
         print(f"Value Board : {board.heuristic_value}")
 
         a = board.forced_moves(player)
         b = board.forced_moves_opti(player)
 
-        print(f"Alignment : {board.alignment_bit_offset}")
+        #print(f"Après Forced : {board.forced_bit_offset}")
+        #print(f"Alignment : {board.alignment_bit_offset}")
 
         print(f"a : {a}")
         print(f"b : {b}")
-
 
         if a is not None and b is not None:
             a = set(a)
             if a.issubset(b):
                 print("Correct")
 
-        ai.get_child_mouvs(board, player, True)
+        #ai.get_child_mouvs(board, player, True)
 
 
     print(f"Winner = {board.is_winning}")
@@ -118,11 +119,11 @@ def test():
     print(board.forced_bit_offset)
 
 def against_ai():
-    board = Board()
+    board = Board(rule="long pro")
     ai = AI(board)
 
     print(board)
-    player = 1
+    player = 2
     input_player = ""
     while input_player.lower().strip() != "stop" and board.is_winning is None:
 

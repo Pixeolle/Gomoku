@@ -10,9 +10,11 @@ class AI:
         self.transposition_table = {}
         self.time_to_play = time_to_play
         self.iterative = 1
-        self.prunning = 0
-        self.tot = 0
-        self.tree = {}
+
+        self.killer_moves = []
+        for _ in range(board.total_pawn):
+            self.killer_moves.append(set())
+
 
     def store_board(self, board : Board, move : str, value : float, depth : int, flag : str) -> None :
         self.transposition_table[board.key] = (move, value, depth, flag)
