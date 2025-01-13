@@ -78,7 +78,7 @@ class AI:
             return board_saved[1], board_saved[0], board_saved[3]
 
         if depth == 0 or datetime.now() > end_time:
-            return self.normalize_value(board.heuristic_value), previous_move, "heuristic"
+            return 0, previous_move, "heuristic"
 
         child_moves = self.get_child_mouvs(board, player)
         depth -= 1 if len(child_moves) > 3 else 0

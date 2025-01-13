@@ -206,6 +206,7 @@ class Board:
 
     def clean_move(self, move : str) -> Tuple[str, int, int]:
         if len(move) < 2 or not move[1:].isdigit() or not move[0].isalpha():
+            print(self)
             raise ValueError(f"Position must be a letter and a integer : {move}")
 
         move = move[0].upper() + move[1:]
@@ -515,7 +516,7 @@ class Board:
                     for value in current_set:
                         other_sets = (s for k, s in check.items() if k != key)
                         if any(value in s for s in other_sets):
-                            return value
+                            return {value}
                 return None
 
             return check if len(check) > 0 else None

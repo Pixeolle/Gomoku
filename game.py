@@ -119,11 +119,11 @@ def test():
     print(board.forced_bit_offset)
 
 def against_ai():
-    board = Board(rule="long pro")
+    board = Board()
     ai = AI(board)
 
     print(board)
-    player = 2
+    player = 1
     input_player = ""
     while input_player.lower().strip() != "stop" and board.is_winning is None:
 
@@ -258,8 +258,6 @@ against_ai()
 board = Board()
 print(board.get_test())
 """
-
-
 
 
 """
