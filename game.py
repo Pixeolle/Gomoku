@@ -1,8 +1,6 @@
-import winsound
+import copy
 from board import Board
 from AI import AI
-from solver import Solver
-import random
 from datetime import datetime, timedelta
 
 
@@ -37,10 +35,17 @@ def generate_board_id():
     while input_player.lower().strip() != "stop" and board.is_winning is None:
 
         move_valid = False
+        valid_copy = False
         while not move_valid:
             try:
                 input_player = input("")
                 if input_player != "stop" and input_player != "invert":
+                    copy_value = copy.deepcopy(board.forced_bit_offset)
+                    board.play_to(player, input_player)
+                    board.undo_to(input_player, player)
+                    if board.forced_bit_offset == copy_value:
+                        valid_copy = True
+
                     board.play_to(player, input_player)
                     player = 1 if player == 2 else 2
                 move_valid = True
@@ -55,8 +60,8 @@ def generate_board_id():
         a = board.forced_moves(player)
         b = board.forced_moves_opti(player)
 
-        #print(f"Après Forced : {board.forced_bit_offset}")
-        #print(f"Alignment : {board.alignment_bit_offset}")
+        print(f"Undo : {valid_copy}")
+
 
         print(f"a : {a}")
         print(f"b : {b}")
@@ -73,50 +78,7 @@ def generate_board_id():
 
     return board.position, board.mask
 
-def remaining_moves(board : Board, depth : int) -> int:
-    count = 1
-    for i in range(len(board.can_play), len(board.can_play) - depth, -1):
-        count *= i
-    return count
 
-@average_elapsed_time(1)
-def alpha_beta_test(board_setting, depth, player):
-    board = Board()
-    ai = AI(board)
-    board.position = board_setting[0]
-    board.mask = board_setting[1]
-    print(board)
-
-    print(f"\n La position trouvé est {ai.alphabeta(board, depth, player)}")
-    print(f"{len(board.can_play)} : {remaining_moves(board, depth)}")
-    print(f"{ai.prunning} coups ont été évité soit {ai.prunning / (remaining_moves(board, depth)):.4%} ")
-    print(f"Transposition table : {ai.transposition_table}")
-
-    ai.prunning = 0
-    board.position = board_setting[0]
-    board.mask = board_setting[1]
-    print(board)
-    start = datetime.now()
-    print(f"\n La position trouvé est {ai.alphabeta_open(board, depth, player)}")
-    end = datetime.now()
-    print(f"{len(board.can_play)} : {remaining_moves(board, depth)}")
-    print(f"{ai.prunning} coups ont été évité soit {ai.prunning / (remaining_moves(board, depth)):.4%} ")
-    print(f"la fonction a pris {end - start}")
-    print(f"{ai.tree}")
-
-def test():
-
-    board = Board()
-    board.position = 5192455329366965992581233513594880
-    board.mask = 36346553393226136395067175341129728
-    value_board = 0
-    print(board)
-    player = 1
-
-    board.play_to(1, "J9")
-    print(board.forced_bit_offset)
-    board.undo_to("J9", 1)
-    print(board.forced_bit_offset)
 
 def against_ai():
     board = Board()
@@ -149,7 +111,7 @@ def against_ai():
 
         print(f"{board}")
         player = 1 if player == 2 else 2
-        ai.get_child_mouvs(board, player, True)
+        print(f"Mouvs : {AI.get_child_mouvs(board, player)}")
 
 
     return board.position, board.mask
@@ -250,6 +212,35 @@ def test_forced_move():
                 a = board.forced_mouvs(1)
                 print(a)
 
+def play_sequence(firstplayer, sequence):
+
+    player = firstplayer
+    board = Board()
+
+    for i in sequence:
+        board.play_to(player, i)
+        player ^= 3
+
+    print(board)
+    print(f"Value Board : {board.heuristic_value}")
+
+    a = board.forced_moves(player)
+    b = board.forced_moves_opti(player)
+
+    print(f"Avant Forced : {board.forced_bit_offset}")
+
+
+    print(f"a : {a}")
+    print(f"b : {b}")
+
+    if a is not None and b is not None:
+        a = set(a)
+        if a.issubset(b):
+            print("Correct")
+
+
+sequence = ["H7","G8","H8","H9","F7","G9","G7","E7","I7","J7","I9","F6","J10","K11","I8","I6","G6","J9","F5","E4","H5","E8","H6","H4","G5","E5","E6" ]
+#play_sequence(1, sequence)
 #generate_board_id()
 #test_forced_move()
 against_ai()

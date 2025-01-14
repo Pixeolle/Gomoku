@@ -1,9 +1,5 @@
-import math
-import random
 import shutil
-from datetime import datetime
-
-import numpy as np
+import copy
 from typing import *
 
 
@@ -191,10 +187,10 @@ class Board:
 
         new_board.position = self.position
         new_board.mask = self.mask
-        new_board.forced_bit_offset = self.forced_bit_offset
+        new_board.forced_bit_offset = copy.deepcopy(self.forced_bit_offset)
 
         new_board.heuristic_value = self.heuristic_value
-        new_board.alignment_bit_offset = self.alignment_bit_offset
+        new_board.alignment_bit_offset = copy.deepcopy(self.alignment_bit_offset)
 
         new_board.key = self.key
 
@@ -202,7 +198,7 @@ class Board:
 
     @property
     def remaining_moves(self) -> int:
-        return self.total_pawn - Board.count_ones(self.mask)
+        return self.total_pawn - self.pawn_played
 
     def clean_move(self, move : str) -> Tuple[str, int, int]:
         if len(move) < 2 or not move[1:].isdigit() or not move[0].isalpha():
@@ -219,21 +215,10 @@ class Board:
 
         return move, line, column
 
-    def distance(self, move_1 : str, move_2 : str) -> float:
-        _, move_1_line, move_1_column = self.clean_move(move_1)
-        _, move_2_line, move_2_column = self.clean_move(move_2)
-        distance = max(abs(move_1_line - move_2_line), abs(move_1_column - move_2_column))
-        return distance
-
     def get_left(self, number : int, position : int) -> int:
         if position < 0 or position >= self.height * self.width:
             raise ValueError(f"Position must be between 0 and {self.height * self.width - 1}")
         return (number >> (self.height * self.width - position - 1)) & 1
-
-    def get_x_y(self,number : int, x : int, y : int ) -> int:
-        if x < 0 or x >= self.height or y < 0 or y >= self.width:
-            raise ValueError(f"X must be between 0 and {self.height - 1} Y must be between 0 and {self.width - 1}")
-        return self.get_left(number, x + y * self.height)
 
     @property
     def can_play(self) -> List[str]:
@@ -313,6 +298,7 @@ class Board:
         self.pawn_played -= 1
 
         self.update_forced_moves(player, bit_offset)
+        self.update_alignment(player, bit_offset)
 
         return self
 
@@ -332,14 +318,6 @@ class Board:
                 return True
         return False
 
-    @staticmethod
-    def count_ones(number: int) -> int:
-        count = 0
-        while number:
-            number &= number - 1
-            count += 1
-        return count
-
     @property
     def is_winning(self) -> Optional[int]:
 
@@ -353,6 +331,14 @@ class Board:
             return 0
 
         return None
+
+    @staticmethod
+    def count_ones(number: int) -> int:
+        count = 0
+        while number:
+            number &= number - 1
+            count += 1
+        return count
 
     @staticmethod
     def bit_builder(one : int, zero : int = 0, repeat : int = 1, start_one : bool = True) -> int:
@@ -787,7 +773,6 @@ class Board:
                 else :
                     self.forced_bit_offset[f"2_p{player}"][offset].add(bit_offset)
 
-
     def update_alignment(self, player : int, bit_offset_point : int, ghost : bool = False):
 
         def check_alignment(bitboard : int, opponent_bit : int, bit_offset : int, offset : int, k : int):
@@ -835,65 +820,6 @@ class Board:
 
         relative_value = update_value if player == 1 else -update_value
         self.heuristic_value += relative_value
-
-    def heuristic(self, value : int, move : str, player : int, display = False) -> int:
-
-        def heuristic_direction(bit_shift, offset : int, player_bits : int, opponent_bits : int) -> int:
-
-
-            attack_sum = 0
-            attack_max = 0
-            defense_sum = 0
-            defense_max = 0
-
-            weight = {
-                2 : 10,
-                3 : 100,
-                4 : 150,
-                5 : 10000
-            }
-
-            for i in range(5):
-                total_offset = bit_shift - i * offset
-                if total_offset < 0:
-                    break
-
-                player_selection = self.select_k_by_offset_bit((player_bits >> total_offset), 5, offset)
-                opponent_selection = self.select_k_by_offset_bit((opponent_bits >> total_offset), 5, offset)
-
-                if self.count_ones(opponent_selection) == 0:
-                    player_stone = self.count_ones(player_selection)
-                    if player_stone > 1:
-                        if player_stone > attack_max:
-                            attack_max = player_stone
-
-            if attack_max > 1 and display :
-                print("Alignement trouvé")
-
-            for i in range(attack_max, 1, -1):
-                attack_sum += weight.get(i, 0)
-
-            tot_sum = attack_sum - defense_sum if player == 1 else defense_sum - attack_sum
-            return tot_sum
-
-        value_direction = 0
-
-        player_bits = self.position if player == 1 else self.position ^ self.mask
-        opponent_bits = self.position if player == 2 else self.position ^ self.mask
-        bit_shift = self.coordinate_to_bit(move)
-        player_bits |= (1 << bit_shift)
-
-        if display :
-            print(f"Move : {move}")
-
-        offsets = [1, self.height, self.height - 1, self.height + 1]
-
-        for offset in offsets:
-            value_direction += heuristic_direction(bit_shift, offset, player_bits, opponent_bits)
-
-        if display :
-            print(f"Value to add : {value_direction} \n")
-        return value + value_direction
 
     def find_1_to_k_near_position(self, k : int = - 1) -> List[Set[str]]:
 
@@ -944,108 +870,3 @@ class Board:
                 mask |= (1 << self.coordinate_to_bit(position))
 
         return all_k_near
-
-    def get_distance(self) -> str:
-        number_to_object = {0: "\033[91mX\033[0m", 1: "\033[94mO\033[0m"}
-        distance_to_object = {
-            1: "\033[91m1\033[0m",  # Red
-            2: "\033[93m2\033[0m",  # Yellow
-            3: "\033[92m3\033[0m",  # Green
-            4: "\033[96m4\033[0m",  # Cyan
-            5: "\033[94m5\033[0m",  # Blue
-            6: "\033[95m6\033[0m",  # Magenta
-            7: "\033[97m7\033[0m"   # White
-        }
-        distances = self.find_1_to_k_near_position()
-        str_to_print : str = ""
-
-        for line in range(self.height):
-            str_to_print += "   "
-            str_to_print += "+"
-            for column in range(self.width):
-                str_to_print += "---+"
-            str_to_print += f"\n {chr(ord('A') + line)} "
-
-            for column in range(self.width):
-                bit_mask = self.get_left(self.mask, self.height * column + line)
-                if bit_mask == 0:
-                    bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
-                    move = self.bit_to_coordinate(bit_offset)
-                    rank = - 1
-                    for index, k_distance in enumerate(distances, 1):
-                        if move in k_distance:
-                            rank = index
-                            break
-
-                    str_to_print += f"| {distance_to_object.get(rank, 7)} "
-                else:
-                    bit_position = self.get_left(self.position, self.height * column + line)
-                    str_to_print += f"| {number_to_object[bit_position]} "
-            str_to_print += "|\n"
-
-        str_to_print += "   "
-        str_to_print += "+"
-        for column in range(self.width):
-            str_to_print += "---+"
-        str_to_print += "\n"
-        str_to_print += "    "
-        for column in range(self.width):
-            str_to_print += f" {column:<2} "
-        str_to_print += "\n"
-
-        return str_to_print
-
-    def get_test(self):
-
-
-        move = "C2"
-        offsets = [1, self.height, self.height - 1, self.height + 1]
-        distance_to_object = {
-            offsets[0] : "\033[92mX\033[0m",  # Green
-            offsets[1] : "\033[96mX\033[0m",  # Cyan
-            offsets[2] : "\033[91mX\033[0m",  # Blue
-            offsets[3] : "\033[95mX\033[0m",  # Magenta
-        }
-
-        move = "H7"
-        self.play_to(1, move)
-        bit_offset_point = self.coordinate_to_bit(move)
-        self.play_to(2, "O14")
-
-
-
-        str_to_print = ""
-        for line in range(self.height):
-            str_to_print += "   "
-            str_to_print += "+"
-            for column in range(self.width):
-                str_to_print += "---+"
-            str_to_print += f"\n {chr(ord('A') + line)} "
-
-            for column in range(self.width):
-                bit_offset = self.height - line - 1 + (self.width - column - 1) * self.height
-
-                #str_to_print += f"| {bit_offset % self.height} "
-
-
-                if bit_offset == bit_offset_point  :
-                    str_to_print += f"| \033[94mO\033[0m "
-                elif bit_offset in self.point_to_explore:
-                    str_to_print += f"| \033[92mX\033[0m "
-                else :
-                    str_to_print += f"|   "
-
-
-            str_to_print += "|\n"
-
-        str_to_print += "   "
-        str_to_print += "+"
-        for column in range(self.width):
-            str_to_print += "---+"
-        str_to_print += "\n"
-        str_to_print += "    "
-        for column in range(self.width):
-            str_to_print += f" {column:<2} "
-        str_to_print += "\n"
-
-        return str_to_print
