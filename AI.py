@@ -44,6 +44,7 @@ class AI:
             while datetime.now() < end and depth <= remaining_moves:
                 board_copy = board.copy()
                 value, move, flag = self.alphabeta(board_copy, depth, player, end, previous_move)
+                print(f"{depth} | {value} | {move} | {flag}")
                 if move is not None:
                     best_move = move
                     best_value = value
@@ -55,6 +56,7 @@ class AI:
 
         if depth - 1 < remaining_moves - 2:
             self.iterative = depth - 1
+
 
         if board.pawn_played == 0:
             return 0, "H7", "open"
@@ -131,7 +133,7 @@ class AI:
 
         for child_move in child_moves:
             board.play_to(player, child_move)
-            value, _, child_flag = self.negamax(board, depth, next_player, end_time, child_move, alpha, beta)
+            value, _, child_flag = self.alphabeta(board, depth, next_player, end_time, child_move, alpha, beta)
             board.undo_to(child_move, player)
 
             value += 1 if value < 0 else -1 if value > 0 else 0
@@ -152,9 +154,12 @@ class AI:
 
                 beta = min(beta, best_value)
 
+            #print(f"{previous_move} : {child_move} {value}")
+
             if alpha >= beta or alpha == self.win_weight or beta == -self.win_weight:
                 break
 
+        #print(f"Final value : {previous_move} : {best_value}")
         self.store_board(board, best_move, best_value, depth, flag)
 
         return best_value, best_move, flag
