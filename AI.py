@@ -43,7 +43,7 @@ class AI:
         try:
             while datetime.now() < end and depth <= remaining_moves:
                 board_copy = board.copy()
-                value, move, flag = self.negamax(board_copy, depth, player, end, previous_move)
+                value, move, flag = self.alphabeta(board_copy, depth, player, end, previous_move)
                 if move is not None:
                     best_move = move
                     best_value = value
@@ -73,14 +73,14 @@ class AI:
             return board_saved[1], board_saved[0], board_saved[3]
 
         if depth == 0 or datetime.now() > end_time:
-            return 0, previous_move, "heuristic" #self.normalize_value(board.heuristic_value)
+            return AI.normalize_value(board.heuristic_value), previous_move, "heuristic" #self.normalize_value(board.heuristic_value)
 
-        child_moves = AI.get_child_mouvs(board, player)
-        if display :
-            print(f"Child moves : {child_moves}")
+        value_child, child_moves = AI.get_child_mouvs(board, player)
+        if value_child is not None:
+            return value_child, child_moves[0], "exact"
         depth -= 1
         next_player = 1 if player == 2 else 2
-        best_value = float("inf")
+        best_value = -float("inf")
         best_move = child_moves[0]
         flag = "heuristic"
 
@@ -92,7 +92,7 @@ class AI:
 
             value += 1 if value < 0 else -1 if value > 0 else 0
 
-            if value < best_value:
+            if value > best_value:
                 best_value = value
                 best_move = child_move
                 flag = child_flag
@@ -106,13 +106,66 @@ class AI:
 
         return best_value, best_move, flag
 
+
+    def alphabeta(self, board: Board, depth: int, player: int, end_time : datetime, previous_move, alpha: int = -float("inf"), beta: int = float("inf"), display = False) -> Tuple[float, Optional[str], str]:
+
+        winner = board.is_winning
+        if winner is not None:
+            return winner * (self.win_weight + 1), previous_move, "exact"
+
+        board_saved = self.get_board(board)
+        if board_saved is not None and (board_saved[2] >= depth or board_saved[3] == "exact"):
+            return board_saved[1], board_saved[0], board_saved[3]
+
+        if depth == 0 or datetime.now() > end_time:
+            return AI.normalize_value(board.heuristic_value), previous_move, "heuristic"
+
+        value_child, child_moves = AI.get_child_mouvs(board, player)
+        if value_child is not None:
+            return value_child, child_moves[0], "exact"
+        depth -= 1
+        next_player = 1 if player == 2 else 2
+        best_value = -float("inf") if player == 1 else float("inf")
+        best_move = child_moves[0]
+        flag = "heuristic"
+
+        for child_move in child_moves:
+            board.play_to(player, child_move)
+            value, _, child_flag = self.negamax(board, depth, next_player, end_time, child_move, alpha, beta)
+            board.undo_to(child_move, player)
+
+            value += 1 if value < 0 else -1 if value > 0 else 0
+
+            if player == 1:
+                if value > best_value:
+                    best_value = value
+                    best_move = child_move
+                    flag = child_flag
+
+                alpha = max(alpha, best_value)
+
+            else:
+                if value < best_value:
+                    best_value = value
+                    best_move = child_move
+                    flag = child_flag
+
+                beta = min(beta, best_value)
+
+            if alpha >= beta or alpha == self.win_weight or beta == -self.win_weight:
+                break
+
+        self.store_board(board, best_move, best_value, depth, flag)
+
+        return best_value, best_move, flag
+
     @staticmethod
-    def get_child_mouvs(board : Board, player : int) -> List[str]:
-        moves = board.forced_moves(player)
+    def get_child_mouvs(board : Board, player : int) -> Tuple[Optional[float], List[str]]:
+        value, moves = board.forced_moves_opti(player)
         if moves is not None :
             moves = list(moves)
             moves.sort(key=lambda x : board.update_alignment(player, board.coordinate_to_bit(x), True), reverse=True)
-            return moves
+            return value, moves
 
         if board.rule == "long pro" and board.pawn_played == 2:
             moves = board.can_play
@@ -124,7 +177,7 @@ class AI:
         if len(moves) > 20:
             moves = moves[:20]
 
-        return moves
+        return None, moves
 
     @staticmethod
     def normalize_value(n: float) -> float:

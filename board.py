@@ -486,7 +486,7 @@ class Board:
             return check_3_opponent
         return None
 
-    def forced_moves_opti(self, player : int) -> Optional[Set]:
+    def forced_moves_opti(self, player : int) -> Tuple[Optional[float], Optional[Set]]:
 
         def check_bit_offset_saved(type_search : str, player_board : int, opponent_board : int, ones_need, attack : bool) -> Optional[Set]:
 
@@ -625,32 +625,32 @@ class Board:
         ones_need = 4
         check_4_player = check_bit_offset_saved(f"4_p{player}", player_board, opponent_board, ones_need, True)
         if check_4_player is not None:
-            return check_4_player
+            return 61, check_4_player
 
         check_4_opponent = check_bit_offset_saved(f"4_p{opponent}", opponent_board, player_board, ones_need, False)
         if check_4_opponent is not None:
-            return check_4_opponent
+            return None, check_4_opponent
 
         ones_need = 3
         check_3_player = check_bit_offset_saved(f"3_p{player}", player_board, opponent_board, ones_need, True)
         if check_3_player is not None:
-            return check_3_player
+            return 59, check_3_player
 
         check_3_opponent = check_bit_offset_saved(f"3_p{opponent}", opponent_board, player_board, ones_need, False)
         if check_3_opponent is not None:
-            return check_3_opponent
+            return None, check_3_opponent
 
         ones_need = 2
         check_2_player = check_bit_offset_saved(f"2_p{player}", player_board, opponent_board, ones_need, True)
         if check_2_player is not None:
-            return check_2_player
+            return 57, check_2_player
 
         check_2_opponent = check_bit_offset_saved(f"2_p{opponent}", opponent_board, player_board, ones_need, False)
         if check_2_opponent is not None:
-            return check_2_opponent
+            return None, check_2_opponent
 
 
-        return None
+        return None, None
 
     def generate_bit_offset(self, origin_offset, offset, k):
         def valid_bit_offset_by_direction(bit_offset, offset, k):

@@ -81,7 +81,7 @@ def generate_board_id():
 
 
 def against_ai():
-    board = Board()
+    board = Board(rule="long pro")
     ai = AI(board)
 
     print(board)
