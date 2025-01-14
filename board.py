@@ -5,7 +5,7 @@ from typing import *
 
 class Board:
 
-    def __init__(self, height : int = 15, width : int = 15, rule = "normal", pawn = 60, weights = None):
+    def __init__(self, height : int = 15, width : int = 15, rule = "normal", pawn = 60):
         self.height : int = height
         self.width : int = width
         self.total_pawn = pawn * 2
@@ -125,15 +125,12 @@ class Board:
 
         self.point_to_explore = set()
 
-        if weights is None:
-            self.weights = {
-                2 : 40,
-                3 : 75,
-                4 : 140,
-                5 : 10000
-            }
-        else:
-            self.weights = weights
+        self.weights = {
+            2 : 40,
+            3 : 75,
+            4 : 140,
+            5 : 10000
+        }
 
         self.key = 0
 

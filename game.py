@@ -224,11 +224,11 @@ def play_sequence(firstplayer, sequence):
 
     print(board)
     print(f"A {player} de jouer ")
-    ai.iterative = 6
+    #ai.iterative = 6
     print(ai.search(board, player, sequence[-1]))
 
 
-sequence = ["H7", "I6", "D7", "H5", "J7", "I5", "I7", "K7", "J6", "J5", "K5", "H8", "L4", "M3", "F5", "M4" ]# ["H7","G8","H8","H9","F7","G9","G7","E7","I7","J7","I9","F6","J10","K11","I8","I6","G6","J9","F5","E4","H5","E8","H6","H4","G5","E5","E6" ]
+sequence = ["H7", "I6", "D7", "H5", "J7", "I5", "I7", "K7", "J6", "J5", "K5", "H8", "L4", "M3", "F5", "I4", "G6", "E4", "I8", "J9", "K6", "L5", "H9", "G10", "F7" ]# ["H7","G8","H8","H9","F7","G9","G7","E7","I7","J7","I9","F6","J10","K11","I8","I6","G6","J9","F5","E4","H5","E8","H6","H4","G5","E5","E6" ]
 play_sequence(1, sequence)
 #generate_board_id()
 #test_forced_move()

@@ -13,9 +13,11 @@ class AI:
         self.iterative = 1
 
 
-
     def store_board(self, board : Board, move : str, value : float, depth : int, flag : str) -> None :
-        self.transposition_table[board.key] = (move, value, depth, flag)
+        if -1 < value < 1 and flag == "exact":
+            flag = "heuristic"
+        value += 1 if value >= 1 else -1 if value <= -1 else 0
+        self.transposition_table[board.key] = (move, value + 1, depth, flag)
 
     def get_board(self, board : Board) -> Optional[Tuple[str, float, int, str]]:
         keys = board.rotated_key()
@@ -43,7 +45,7 @@ class AI:
         try:
             while datetime.now() < end and depth <= remaining_moves:
                 board_copy = board.copy()
-                value, move, flag = self.alphabeta(board_copy, depth, player, end, previous_move)
+                value, move, flag = self.alphabeta(board, depth, player, end, previous_move)
                 print(f"{depth} | {value} | {move} | {flag}")
                 if move is not None:
                     best_move = move
@@ -81,7 +83,7 @@ class AI:
         if value_child is not None:
             return value_child, child_moves[0], "exact"
         depth -= 1
-        next_player = 1 if player == 2 else 2
+        next_player = player ^ 3
         best_value = -float("inf")
         best_move = child_moves[0]
         flag = "heuristic"
@@ -125,7 +127,7 @@ class AI:
         value_child, child_moves = AI.get_child_mouvs(board, player)
         if value_child is not None:
             return value_child, child_moves[0], "exact"
-        depth -= 1
+        depth -= 1 if len(child_moves) > 3 else 0
         next_player = 1 if player == 2 else 2
         best_value = -float("inf") if player == 1 else float("inf")
         best_move = child_moves[0]
@@ -166,11 +168,11 @@ class AI:
 
     @staticmethod
     def get_child_mouvs(board : Board, player : int) -> Tuple[Optional[float], List[str]]:
-        value, moves = board.forced_moves_opti(player)
+        moves = board.forced_moves(player)
         if moves is not None :
             moves = list(moves)
             moves.sort(key=lambda x : board.update_alignment(player, board.coordinate_to_bit(x), True), reverse=True)
-            return value, moves
+            return None, moves
 
         if board.rule == "long pro" and board.pawn_played == 2:
             moves = board.can_play
@@ -179,8 +181,8 @@ class AI:
             moves = [mouv for k_range in board.find_1_to_k_near_position(2) for mouv in k_range]
         moves.sort(key=lambda x : board.update_alignment(player, board.coordinate_to_bit(x), True), reverse=True)
 
-        if len(moves) > 20:
-            moves = moves[:20]
+        if len(moves) > 10:
+            moves = moves[:10]
 
         return None, moves
 
