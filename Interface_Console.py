@@ -5,6 +5,7 @@ from datetime import datetime
 from pyfiglet import Figlet
 from board import Board
 from AI import AI
+import threading
 
 
 class GomokuGame:
@@ -16,6 +17,8 @@ class GomokuGame:
         self.style_o = "\033[94mO\033[0m"
         self.moves_history = []
         self.ia_timer = None
+        self.voyager_thread = None
+        self.voyager_running = False
 
     def clear(self):
         os.system('cls' if os.name == 'nt' else 'clear')
@@ -243,7 +246,9 @@ class GomokuGame:
             self.display_game_state(current_player, game_mode)
 
             if current_player == 1:
+                self.start_voyager()
                 move = self.get_player_move(current_player)
+                self.stop_voyager()
                 if move.lower() == 'quit':
                     break
             else:
@@ -356,6 +361,27 @@ class GomokuGame:
             print(f"\nErreur lors de la lecture du fichier: {e}")
 
         input("\nAppuyez sur Entrée pour revenir au menu...")
+
+    def voyager(self):
+        try:
+            while self.voyager_running:
+                board_copy = self.board.copy()
+                value_board = board_copy.heuristic_value
+                _, move, _ = self.ai.search(board_copy, 2, value_board)
+        except Exception as e:
+            print(f"Erreur dans le thread Voyager: {e}")
+
+    def start_voyager(self):
+        self.voyager_running = True
+        self.voyager_thread = threading.Thread(target=self.voyager)
+        self.voyager_thread.daemon = True
+        self.voyager_thread.start()
+
+    def stop_voyager(self):
+        self.voyager_running = False
+        if self.voyager_thread:
+            self.voyager_thread.join(timeout=1)
+
 
     def run(self):
         while True:
