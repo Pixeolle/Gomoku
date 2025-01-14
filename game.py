@@ -24,12 +24,13 @@ check_defense = (5192376087906286159226792757428224, 510431338905924868895035403
 
 def generate_board_id():
 
-    board = Board()
+    board = Board(rule="long pro")
     #board.position = 5192455329366965992581233513594880
     #board.mask = 36346553393226136395067175341129728
     ai = AI(board)
     value_board = 0
     print(board)
+    print(AI.get_child_mouvs(board, 1))
     player = 1
     input_player = ""
     while input_player.lower().strip() != "stop" and board.is_winning is None:
@@ -85,7 +86,7 @@ def against_ai():
     ai = AI(board)
 
     print(board)
-    player = 1
+    player = 2
     input_player = ""
     while input_player.lower().strip() != "stop" and board.is_winning is None:
 
@@ -103,7 +104,7 @@ def against_ai():
             ai.prunning = 0
             ai.tot = 0
             start_former = datetime.now()
-            move_former = ai.alphabeta(board,6, player, datetime.now() + timedelta(seconds=20), input_player)
+            move_former = ai.search(board, player, input_player)
             time_former = datetime.now() - start_former
             print(f"Value : {move_former[0]} | Move : {move_former[1]} | Flag : {move_former[2]} | Time : {time_former} ")
             board.play_to(player, move_former[1])
@@ -229,10 +230,10 @@ def play_sequence(firstplayer, sequence):
 
 
 sequence = ["H7", "I6", "D7", "H5", "J7", "I5", "I7", "K7", "J6", "J5", "K5", "H8", "L4", "M3", "F5", "I4", "G6", "E4", "I8", "J9", "K6", "L5", "H9", "G10", "F7" ]# ["H7","G8","H8","H9","F7","G9","G7","E7","I7","J7","I9","F6","J10","K11","I8","I6","G6","J9","F5","E4","H5","E8","H6","H4","G5","E5","E6" ]
-play_sequence(1, sequence)
+#play_sequence(1, sequence)
 #generate_board_id()
 #test_forced_move()
-#against_ai()
+against_ai()
 #test()
 #["H7", "I6", "D7", "H5", "J7", "I5", "I7", "K7", "J6", "J5", "K5", "H8", "L4", "M3", "F5", "I4", "G6", "E4", "I8", "J9", "K6", "L5", "H9", "G10", "F7", ]
 """

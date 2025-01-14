@@ -140,7 +140,7 @@ class GomokuGame:
                 if move.upper() not in self.board.can_play:
                     print("Coup non valide ! Veuillez entrer un coup valide.")
                     continue
-                self.moves_history.append(move)
+                self.moves_history.append(self.board.clean_move(move)[0])
                 return move
             except ValueError as e:
                 print(f"Erreur: {e}")
@@ -238,9 +238,9 @@ class GomokuGame:
     def play_vs_ai(self):
         self.moves_history = []
         current_player = self.select_first_player(game_type="vs_ai")
-        value_board = 0
         game_mode = "Joueur contre IA"
         self.ia_timer = None
+        last_move = None
 
         while True:
             self.display_game_state(current_player, game_mode)
@@ -248,22 +248,24 @@ class GomokuGame:
             if current_player == 1:
                 self.start_voyager()
                 move = self.get_player_move(current_player)
+                last_move = move
                 self.stop_voyager()
                 if move.lower() == 'quit':
                     break
             else:
                 start_timer = datetime.now()
-                _, move, _ = self.ai.search(self.board, current_player, value_board)
+
+                _, move, _ = self.ai.search(self.board, current_player, last_move)
+                last_move = move
                 end_timer = datetime.now()
                 self.ia_timer = end_timer - start_timer
                 if move is None:
                     print("L'IA n'a pas pu trouver de coup valide!")
                     break
                 print(f"\nL'IA joue: {move}")
-                self.moves_history.append(move)
+                self.moves_history.append(self.board.clean_move(move)[0])
 
             self.board.play_to(current_player, move)
-            value_board = self.board.heuristic(value_board, move, current_player)
 
             winner = self.board.is_winning
             if winner is not None:
@@ -363,13 +365,16 @@ class GomokuGame:
         input("\nAppuyez sur Entrée pour revenir au menu...")
 
     def voyager(self):
+        print(f"TT avant voyager {len(self.ai.transposition_table)}")
         try:
             while self.voyager_running:
+
                 board_copy = self.board.copy()
-                value_board = board_copy.heuristic_value
-                _, move, _ = self.ai.search(board_copy, 2, value_board)
+                _, move, _ = self.ai.search(board_copy, 2, self.moves_history[-1])
         except Exception as e:
             print(f"Erreur dans le thread Voyager: {e}")
+
+        print(f"TT avant voyager {len(self.ai.transposition_table)}")
 
     def start_voyager(self):
         self.voyager_running = True
