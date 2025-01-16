@@ -88,7 +88,7 @@ class AI:
 
             board.undo_to(child_move, player)
 
-            value += 1 if value < 0 else -1 if value > 0 else 0
+            value += 1 if value < -1 else -1 if value > 1 else 0
 
             if player == 1:
                 if value > best_value:
@@ -108,21 +108,22 @@ class AI:
         return best_value, best_move, flag
 
     def search(self, board: Board, player: int, previous_move: str) -> Tuple[float, Optional[str], str]:
-        end = datetime.now() + timedelta(seconds=self.time_to_play) - timedelta(seconds=0.01)
+        end = datetime.now() + timedelta(seconds=self.time_to_play) - timedelta(seconds=0.1)
         best_move = None
         best_value = None
         best_flag = None
-        board_copy = board.copy()
+        board_to_study = board.copy()
         depth = self.iterative
         remaining_moves = board.remaining_moves
 
         if board.pawn_played == 0:
-            board_copy.play_to(player, "H7")
+            board_to_study.play_to(player, "H7")
 
         try:
             while datetime.now() < end and depth <= remaining_moves:
+                board_copy = board_to_study.copy()
                 value, move, flag = self.alphabeta(board_copy, depth, player, end, previous_move)
-                print(f"{depth} | {value} | {move} | {flag}")
+                #print(f"{depth} | {value} | {move} | {flag}")
                 if move is not None:
                     best_move = move
                     best_value = value

@@ -495,11 +495,19 @@ class Board:
                 self.forced_bit_offset[type_search][key].difference_update(value)
 
             if type_search in ["2_p1", "2_p2"]:
-                for key, current_set in check.items():
-                    for value in current_set:
-                        other_sets = (s for k, s in check.items() if k != key)
-                        if any(value in s for s in other_sets):
-                            return {value}
+                moves_available = set()
+
+                for direction in check.values():
+                    for alignment in direction:
+                        for other_direction in check.values():
+                            if other_direction != direction:
+                                for other_alignment in other_direction:
+                                    if len(alignment & other_alignment) > 0:
+                                        moves_available.update(alignment | other_alignment)
+
+                if len(moves_available) > 0:
+                    return moves_available
+
                 return None
 
             return check if len(check) > 0 else None
@@ -589,17 +597,17 @@ class Board:
 
                         match selected_bit:
                             case 0b011000:
-                                position_find = {self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset + offset)}
+                                position_find = frozenset([self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset + offset)])
                             case 0b010100:
-                                position_find = {self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset + offset)}
+                                position_find = frozenset([self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset + offset)])
                             case 0b010010:
-                                position_find = {self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset + 3 * offset, bit_offset)}
+                                position_find = frozenset([self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset + 3 * offset, bit_offset)])
                             case 0b001100:
-                                position_find = {self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 4 * offset, bit_offset)}
+                                position_find = frozenset([self.bit_to_coordinate(bit_offset + 1 * offset), self.bit_to_coordinate(bit_offset + 4 * offset, bit_offset)])
                             case 0b001010:
-                                position_find = {self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset + 4 * offset)}
+                                position_find = frozenset([self.bit_to_coordinate(bit_offset + 2 * offset), self.bit_to_coordinate(bit_offset + 4 * offset)])
                             case 0b000110:
-                                position_find = {self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset + 4 * offset)}
+                                position_find = frozenset([self.bit_to_coordinate(bit_offset + 3 * offset), self.bit_to_coordinate(bit_offset + 4 * offset)])
 
 
                     if ones_need != 2:
@@ -607,7 +615,7 @@ class Board:
                     elif position_find is None:
                         bit_offset_to_discard[offset].add(bit_offset)
                     else :
-                        moves_by_direction[offset].update(position_find)
+                        moves_by_direction[offset].add(position_find)
 
             if ones_need == 2:
                 return bit_offset_to_discard, moves_by_direction

@@ -2,7 +2,7 @@ import os
 import random
 from typing import Tuple, Optional
 from datetime import datetime
-from pyfiglet import Figlet
+#from pyfiglet import Figlet
 from board import Board
 from AI import AI
 import threading
@@ -23,8 +23,6 @@ class GomokuGame:
     def clear(self):
         os.system('cls' if os.name == 'nt' else 'clear')
 
-    def display_title(self):
-        print(Figlet(font='slant').renderText('Gomoku'))
 
     def display_menu(self) -> str:
         print("\n" + "═" * 50)
@@ -41,7 +39,7 @@ class GomokuGame:
 
     def select_game_mode(self) -> str:
         self.clear()
-        self.display_title()
+        #self.display_title()
         print("\n" + "═" * 50)
         print("Sélection du mode de jeu:")
         print("1. Mode Normal")
@@ -59,7 +57,7 @@ class GomokuGame:
 
     def select_first_player(self, game_type: str = None) -> int:
         self.clear()
-        self.display_title()
+        #self.display_title()
         print("\n" + "═" * 50)
         print("Qui commence la partie ?")
         if game_type == "pvp":
@@ -317,7 +315,7 @@ class GomokuGame:
 
     def load_and_display_game(self):
         self.clear()
-        self.display_title()
+        #self.display_title()
         filename = input("Entrez le nom de la sauvegarde à voir: ").strip()
         try:
             with open(f"{filename}.txt", "r") as file:
@@ -391,7 +389,7 @@ class GomokuGame:
     def run(self):
         while True:
             self.clear()
-            self.display_title()
+            #self.display_title()
 
             if not hasattr(self, 'game_mode') or self.game_mode is None:
                 self.game_mode = self.select_game_mode()
